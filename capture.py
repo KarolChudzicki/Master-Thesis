@@ -3,6 +3,10 @@ import time
 # Open the camera (1 refers to the default camera)
 cap = cv.VideoCapture(1)
 
+# Set desired resolution
+cap.set(cv.CAP_PROP_FRAME_WIDTH, 1280)
+cap.set(cv.CAP_PROP_FRAME_HEIGHT, 720)
+
 # Check if the camera opened successfully
 if not cap.isOpened():
     print("Error: Could not open camera.")
@@ -10,6 +14,7 @@ if not cap.isOpened():
 
 # Read a frame from the camera
 n = 30
+
 toggle = False
 while n > 0:
     ret, frame = cap.read()
