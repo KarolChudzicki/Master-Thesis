@@ -13,7 +13,7 @@ if not cap.isOpened():
     exit()
 
 # Read a frame from the camera
-n = 30
+n = 50
 
 toggle = False
 while n > 0:
