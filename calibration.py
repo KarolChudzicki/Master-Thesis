@@ -21,11 +21,14 @@ img_points = []  # 2D points in image plane
 
 calib_images = glob.glob('calibration_images/captured_image*.jpg')
 
+
 for image in calib_images:
     img = cv.imread(image)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    
+    gray = cv.fastNlMeansDenoising(gray)
 
-    kernel_number = 1
+    kernel_number = 5
     sides = -0.25*(kernel_number+1) + 0.25
     kernel = np.array([[0, sides, 0],
                        [sides, kernel_number,sides],
@@ -39,7 +42,7 @@ for image in calib_images:
         
     if ret:
         # Add object points (3D) and image points (2D) after detecting corners
-        corners = cv.cornerSubPix(gray, corners, (5,5), (-1,-1), criteria)
+        corners = cv.cornerSubPix(gray, corners, (15,15), (-1,-1), criteria)
         obj_points.append(chessboard_coords)
         img_points.append(corners)
             
@@ -47,7 +50,7 @@ for image in calib_images:
         cv.drawChessboardCorners(img, chessboard_size, corners, ret)
         cv.imshow('Chessboard', img)
         print(f"Chessboard corners detected in {image}")
-        cv.waitKey(100)
+        cv.waitKey(5000)
     else:
         print(f"Chessboard corners not detected in {image}")
         cv.waitKey(100)
