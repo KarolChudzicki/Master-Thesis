@@ -74,30 +74,63 @@ class Camera:
 
             # ==================== Get parameters from sliders ====================
 
-            # h_low = cv.getTrackbarPos("H low", "Camera params")
-            # s_low = cv.getTrackbarPos("S low", "Camera params") 
-            # v_low = cv.getTrackbarPos("V low", "Camera params") 
-            # h_up = cv.getTrackbarPos("H upper", "Camera params") 
-            # s_up = cv.getTrackbarPos("S upper", "Camera params") 
-            # v_up = cv.getTrackbarPos("V upper", "Camera params") 
+            h_low = cv.getTrackbarPos("H low", "Camera params")
+            s_low = cv.getTrackbarPos("S low", "Camera params") 
+            v_low = cv.getTrackbarPos("V low", "Camera params") 
+            h_up = cv.getTrackbarPos("H upper", "Camera params") 
+            s_up = cv.getTrackbarPos("S upper", "Camera params") 
+            v_up = cv.getTrackbarPos("V upper", "Camera params") 
             
-            # dil = cv.getTrackbarPos("Dilation", "Camera params") 
-            # ero = cv.getTrackbarPos("Erosion", "Camera params") 
+            dil = cv.getTrackbarPos("Dilation", "Camera params") 
+            ero = cv.getTrackbarPos("Erosion", "Camera params") 
 
             canny_low = cv.getTrackbarPos("Canny", "Camera params") 
             thresh_low = cv.getTrackbarPos("Thresh", "Camera params")
 
-            # lower_bound = (h_low, s_low, v_low)
-            # upper_bound = (h_up, s_up, v_up)
+            lower_bound = (h_low, s_low, v_low)
+            upper_bound = (h_up, s_up, v_up)
 
             # ==================== Applying mask ====================
-                       
-            frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-            frame_blurred = cv.GaussianBlur(frame_gray, (5,5), 0)
+            lab = cv.cvtColor(frame, cv.COLOR_BGR2LAB)
+            l, a, b = cv.split(lab)
+
+            clahe = cv.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+            l_clahe = clahe.apply(l)
+
+            lab_clahe = cv.merge((l_clahe, a, b))
+            frame_clahe = cv.cvtColor(lab_clahe, cv.COLOR_LAB2BGR)
+            hsv = cv.cvtColor(frame_clahe, cv.COLOR_BGR2HSV)
+   
+            mask_gray = cv.inRange(hsv, lower_bound, upper_bound)  
+
+            mask_gray = cv.morphologyEx(mask_gray, cv.MORPH_OPEN, np.ones((5,5), np.uint8))
+            mask_gray = cv.morphologyEx(mask_gray, cv.MORPH_CLOSE, np.ones((5,5), np.uint8))
+
+            gray_region = cv.bitwise_and(frame, frame, mask=mask_gray)
+            gray_gray = cv.cvtColor(gray_region, cv.COLOR_BGR2GRAY)
+
+
+            kernel = cv.getStructuringElement(cv.MORPH_RECT, (5, 5))
+
+            # Apply Erosion
+            eroded = cv.erode(gray_gray, kernel, iterations=ero)
+            
+            # Apply Dilation
+            dilated = cv.dilate(eroded, kernel, iterations=dil)
+
+            _, thresh = cv.threshold(dilated, 1, 255, cv.THRESH_BINARY)
+
+            edges = cv.Canny(thresh, 150, 200)
+
+            
+            # result = cv.bitwise_and(hsv, frame, mask=mask)
+
+            # frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+            # frame_blurred = cv.GaussianBlur(frame_gray, (9,9), 0)
 
             #_, frame_thresholded = cv.threshold(frame_blurred, thresh_low, 255, cv.THRESH_BINARY_INV)
 
-            edges = cv.Canny(frame_blurred, canny_low, 200)
+            # edges = cv.Canny(frame_blurred, canny_low, 200)
 
             contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         
@@ -107,6 +140,17 @@ class Camera:
             if contours:
                 contour = max(contours, key=cv.contourArea)
                 
+                # # Get bounding rectangle or mask
+                # x, y, w, h = cv.boundingRect(contour)
+
+                # # Crop the original image to the bounding box of the biggest contour
+                # cropped = frame[y:y+h, x:x+w]
+
+                # # Show result
+                # cv.imshow('Biggest Contour Region', cropped)
+
+
+
                 # Calculating contour center x coordinate
                 M = cv.moments(contour)
 
@@ -115,16 +159,23 @@ class Camera:
                 
                 center_rect = [int(center_rect[0]), int(center_rect[1])]
                 cv.circle(edges, center_rect, 5, (255, 255, 0), 2)
+                cv.drawContours(edges, [contour], -1, (0,255,0), 2)
 
             cv.imshow('Image show', edges)
+            cv.waitKey(1)
+            cv.imshow('Gray', gray_gray)
+            cv.waitKey(1)
+            cv.imshow('Dilated', dilated)
+            cv.waitKey(1)
+            cv.imshow('Thresh', thresh)
             cv.waitKey(1)
 
 
     def initSlider(self):
         cv.namedWindow("Camera params",cv.WINDOW_NORMAL)
-        cv.createTrackbar("H low", "Camera params", 1, 255, lambda x: None)
-        cv.createTrackbar("S low", "Camera params", 1, 255, lambda x: None)
-        cv.createTrackbar("V low", "Camera params", 1, 255, lambda x: None)
+        cv.createTrackbar("H low", "Camera params", 0, 255, lambda x: None)
+        cv.createTrackbar("S low", "Camera params", 0, 255, lambda x: None)
+        cv.createTrackbar("V low", "Camera params", 0, 255, lambda x: None)
         
         cv.createTrackbar("H upper", "Camera params", 255, 255, lambda x: None)
         cv.createTrackbar("S upper", "Camera params", 255, 255, lambda x: None)
@@ -132,6 +183,9 @@ class Camera:
         
         cv.createTrackbar("Canny", "Camera params", 1, 200, lambda x: None)
         cv.createTrackbar("Thresh", "Camera params", 1, 255, lambda x: None)
+
+        cv.createTrackbar("Erosion", "Camera params", 1, 20, lambda x: None)
+        cv.createTrackbar("Dilation", "Camera params", 1, 20, lambda x: None)
 
     def update(self):
         pass

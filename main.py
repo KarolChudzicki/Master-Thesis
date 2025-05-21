@@ -12,4 +12,4 @@ camera.connect(1, 1280, 720)
 camera.initSlider()
 
 while True:
-    camera.capture(400)
+    camera.capture(250)
