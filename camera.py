@@ -48,6 +48,15 @@ class Camera:
         self.cleaned = re.sub(r'\s+', ' ', self.cleaned)
         self.distortion_coeffs = np.array([np.fromstring(self.cleaned.strip(), sep=' ')])
 
+        IC_width = 60
+        IC_length = 80
+        self.IC_points = np.array([
+            [-IC_length/2, -IC_width/2, 0],  # Corner 1
+            [-IC_length/2, IC_width/2, 0],  # Corner 2
+            [IC_length/2, IC_width/2, 0],  # Corner 3
+            [IC_length/2, -IC_width/2, 0]   # Corner 4
+        ], dtype=np.float32)
+
     def connect(self, camera_id, width, height) -> None:
         self.cap = cv.VideoCapture(camera_id) 
         # Set desired resolution
@@ -156,6 +165,7 @@ class Camera:
 
                 rect = cv.minAreaRect(contour)  # Get the bounding rectangle
                 center_rect, size_rect, angle_rect = rect
+                print(center_rect, angle_rect)
                 
                 center_rect = [int(center_rect[0]), int(center_rect[1])]
                 cv.circle(edges, center_rect, 5, (255, 255, 0), 2)
@@ -171,11 +181,93 @@ class Camera:
             cv.waitKey(1)
 
 
+    def coords(self, points, points_sorted, frame):
+        points_sorted = np.array(points_sorted, dtype=np.float32)
+
+        # Maybe use cv.SOLVEPNP_P3P, but it only works for 4 points cv.SOLVEPNP_EPNP
+        if len(points_sorted) == 4:
+            success, rotation_vector, translation_vector = cv.solvePnP(points, points_sorted, camera_matrix, distortion_coeffs, flags=cv.SOLVEPNP_P3P)
+        else:
+            print("Incorrect number of corners")
+        
+        if success:
+            rotation_matrix, _ = cv.Rodrigues(rotation_vector)
+            cube_center_object_space = np.mean(points, axis=0)
+            cube_center_camera_space = np.dot(rotation_matrix, cube_center_object_space.reshape(-1, 1)) + translation_vector
+
+            coordinates_camera_space = np.round(cube_center_camera_space.ravel()[:3]).astype(int)
+
+            # Yaw, pitch, roll
+            try:
+                U, _, Vt = np.linalg.svd(rotation_matrix)
+            
+                # Compute the new rotation matrix
+                # possible alternative is to use Singular Value Decomposition (SVD)
+                # on the rotation matrix to extract the rotation angles directly.
+                # This method is less susceptible to some of the numerical instability issues that can arise from Euler angle calculations. 
+                R = np.dot(U, Vt)
+                yaw = math.atan2(R[1, 0], R[0, 0])
+
+                yaw = round(np.degrees(yaw))     
+                
+
+                # # Project the 3D points to 2D image points using the pose (rvec, tvec)
+                # img_points, _ = cv.projectPoints(points, rotation_vector, translation_vector, camera_matrix, distortion_coeffs)
+
+                # # Visualize the projected points on the image (assuming 'frame' is your video frame)
+                # for point in img_points:
+                #     x, y = point.ravel()
+                #     cv.circle(frame, (int(x), int(y)), 5, (255, 255, 0), -1)  # Draw green dots
+                
+                
+            except Exception as e:
+                print(f"Error in angle calculation: {e}")
+                return None
+
+            coordinates = np.round(coordinates_camera_space.ravel()[:3]).astype(int).tolist()
+            
+        
+            #Remove z which has index = 2
+            coordinates.pop(2)
+                    
+            return coordinates, yaw
+        else:
+            print("Solve PNP error")
+            return None, None
+
+    def sort_points(self, points, number):
+        
+        if number == 4:
+            # Step 1: Calculate the center of the points (average of all points)
+            center = np.mean(points, axis=0)
+            
+            # Step 2: Calculate the angle of each point relative to the center
+            def calculate_angle(point, center):
+                dx = point[0] - center[0]
+                dy = point[1] - center[1]
+                return np.arctan2(dy, dx)
+
+            # Step 3: Sort points based on the angle
+            angles = [calculate_angle(point, center) for point in points]
+            sorted_indices = np.argsort(angles)
+            sorted_points = points[sorted_indices]
+            
+            # Step 4: Return the sorted points
+            return sorted_points.astype(int)
+
+        else:
+            print("Invalid number of points")
+            return None
+
     def initSlider(self):
         cv.namedWindow("Camera params",cv.WINDOW_NORMAL)
         cv.createTrackbar("H low", "Camera params", 0, 255, lambda x: None)
         cv.createTrackbar("S low", "Camera params", 0, 255, lambda x: None)
         cv.createTrackbar("V low", "Camera params", 0, 255, lambda x: None)
+
+        cv.setTrackbarPos("H low", "Camera params", 60)
+        cv.setTrackbarPos("S low", "Camera params", 40)
+        cv.setTrackbarPos("V low", "Camera params", 45)
         
         cv.createTrackbar("H upper", "Camera params", 255, 255, lambda x: None)
         cv.createTrackbar("S upper", "Camera params", 255, 255, lambda x: None)
@@ -186,6 +278,9 @@ class Camera:
 
         cv.createTrackbar("Erosion", "Camera params", 1, 20, lambda x: None)
         cv.createTrackbar("Dilation", "Camera params", 1, 20, lambda x: None)
+
+        cv.setTrackbarPos("Erosion", "Camera params", 4)
+        cv.setTrackbarPos("Dilation", "Camera params", 4)
 
     def update(self):
         pass
