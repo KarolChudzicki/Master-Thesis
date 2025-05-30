@@ -3,8 +3,14 @@ import time
 import ur
 import numpy as np
 import re
+import socket
+from urData import URData
 
-URRobot = ur.URRobot()
+receiver = URData()
+
+for i in range(10):
+    print(receiver.get_pose())
+    time.sleep(0.1)
 
 # Open the camera (1 refers to the default camera)
 cap = cv.VideoCapture(1)
@@ -59,13 +65,12 @@ toggle = False
 
 TCP_pose_array = []
 
-for i in range(10):
-    print(URRobot.current_Position())
-    time.sleep(0.1)
+
 
 while n <= 15:
     ret, frame = cap.read()
-
+    # pose = URRobot.current_Position()
+    # print("Pose:", pose)
 
     new_camera_matrix, roi = cv.getOptimalNewCameraMatrix(camera_matrix, distortion_coeffs, (width, height), 1, (width, height))
 
@@ -85,25 +90,26 @@ while n <= 15:
         cv.imwrite("calibration_images_hand_eye/captured_image"+ str(n) +".jpg", frame)
         print("Image saved as 'calibration_images_hand_eye/captured_image'"+ str(n) +".jpg")
         
-        TCP_pose = URRobot.current_Position()
-        print(TCP_pose)
-        TCP_pose_array.append(TCP_pose)
+        try:
+            pose = receiver.get_pose()
+            print("Pose:", pose)
+            TCP_pose_array.append(pose)
+        except Exception as e:
+            print("Error fetching pose:", e)
 
-        
-        
-        
             
         n = n + 1
     elif key != ord('q'):
 
         toggle = False
-    if key == 27:
+    if key == ord('x'):
         break
         
-    
+print(TCP_pose_array)
+
 with open('calib_param_hand_eye.txt', 'w') as file:
     file.write("===============TCP POSE===============\n")
-    file.write(np.array2string(TCP_pose_array) + '\n')
+    file.write(str(TCP_pose_array) + '\n')
 
 # Release the camera
 cap.release()
