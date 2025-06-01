@@ -48,7 +48,7 @@ class URData:
         while self.running:
             try:
                 response = self.recv_all(812)
-                if response and len(response) >= 636:
+                if response and len(response) >= 812:
                     pose = []
                     for i in range(START_BYTE, END_BYTE):
                         idx = OFFSET + 8 * i

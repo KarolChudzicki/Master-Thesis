@@ -6,7 +6,7 @@ import glob
 
 #======================= CHESSBOARD PARAMETERS =======================#
 chessboard_size = (5, 7)
-square_size = 80
+square_size = 0.08
 
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 

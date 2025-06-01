@@ -67,71 +67,9 @@ class URRobot:
         print(response)
     
     
-    def recv_all(self, n):
-        data = b''
-        while len(data) < n:
-            packet = self.s3.recv(n - len(data))
-            if not packet:
-                return None
-            data += packet
-        return data
-    
-    def flush_socket(self):
-        self.s3.setblocking(0)  # non-blocking mode
-        try:
-            while True:
-                data_now = self.recv_all(812)
-                if not data_now:
-                    break
-                else:
-                    data_prev = data_now
-        except BlockingIOError:
-            # No more data available to read
-            pass
-        finally:
-            self.s3.setblocking(1)  # back to blocking mode
-            print(len(data_prev))
-            
-            
-
-    def current_Position(self) -> list[float]:
-        """
-        Retrieves the current TCP position of the robot.
-
-        Returns:
-            list[float]: A list containing the robot's position in decimal format,
-                         rounded to a specified number of decimal points.
-        """
-        STARTING_BYTE = 72
-        ENDING_BYTE = 78
-        POSITION_DECIMAL_POINTS = 5
-        OFFSET = 12
-        COMMAND  = 'get_actual_tcp_pose()\n'
-        
-
-        
-        #self.s1.send(COMMAND.encode('utf-8'))
-        # VERY IMPORTANT TO SET THE VALUE TO 812!!
-
-        self.s3.settimeout(0.1)  # wait max 0.5 seconds on recv
-        robot_position = []
-
-        try:
-            response = self.recv_all(812)
-            
-            print(f"Received {len(response)} bytes")
-            for x in range (STARTING_BYTE, ENDING_BYTE):
-                val = OFFSET + 8 * x
-                position = struct.unpack('>d', response[val:val+8])
-                position = round(float(position[0]),POSITION_DECIMAL_POINTS)
-                robot_position.append(position)
-        except socket.timeout:
-            print("No data received in timeout")
-        
-
-    
-        return robot_position
-
+    def speedl(self, speed_vector, acceleration, time) -> None:
+        COMMAND = 'speedl(' + str(speed_vector) + ',' + str(acceleration) + ',' + str(time) + ')\n'
+        self.s1.send(COMMAND.encode('utf-8'))
 
 
 

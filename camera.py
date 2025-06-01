@@ -11,42 +11,81 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 
-
-
-
-
-
-
 class Camera:
     def __init__(self):
 
                 # Read file
         with open('calib_param.txt', 'r') as f:
-            self.lines = f.readlines()
+            lines = f.readlines()
 
 
 
-        self.cleaned = re.sub(r'[\[\]]', '', self.lines[1])
-        self.cleaned = re.sub(r'\s+', ' ', self.cleaned)
-        self.row1 = np.fromstring(self.cleaned.strip(), sep=' ')
+        cleaned = re.sub(r'[\[\]]', '', lines[1])
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        row1 = np.fromstring(cleaned.strip(), sep=' ')
 
-        self.cleaned = re.sub(r'[\[\]]', '', self.lines[2])
-        self.cleaned = re.sub(r'\s+', ' ', self.cleaned)
-        self.row2 = np.fromstring(self.cleaned.strip(), sep=' ')
+        cleaned = re.sub(r'[\[\]]', '', lines[2])
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        row2 = np.fromstring(cleaned.strip(), sep=' ')
 
-        self.cleaned = re.sub(r'[\[\]]', '', self.lines[3])
-        self.cleaned = re.sub(r'\s+', ' ', self.cleaned)
-        self.row3 = np.fromstring(self.cleaned.strip(), sep=' ')
+        cleaned = re.sub(r'[\[\]]', '', lines[3])
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        row3 = np.fromstring(cleaned.strip(), sep=' ')
 
         self.camera_matrix = np.array([
-            self.row1,
-            self.row2,
-            self.row3
+            row1,
+            row2,
+            row3
         ])
 
-        self.cleaned = re.sub(r'[\[\]]', '', self.lines[5])
-        self.cleaned = re.sub(r'\s+', ' ', self.cleaned)
-        self.distortion_coeffs = np.array([np.fromstring(self.cleaned.strip(), sep=' ')])
+        cleaned = re.sub(r'[\[\]]', '', lines[5])
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        self.distortion_coeffs = np.array([np.fromstring(cleaned.strip(), sep=' ')])
+
+        with open('calib_param_hand_eye.txt', 'r') as f:
+            lines = f.readlines()
+
+        cleaned = re.sub(r'[\[\]]', '', lines[17])
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        row1 = np.fromstring(cleaned.strip(), sep=' ')
+
+        cleaned = re.sub(r'[\[\]]', '', lines[18])
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        row2 = np.fromstring(cleaned.strip(), sep=' ')
+
+        cleaned = re.sub(r'[\[\]]', '', lines[19])
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        row3 = np.fromstring(cleaned.strip(), sep=' ')
+
+        self.R_cam2gripper = np.array([
+            row1,
+            row2,
+            row3
+        ])
+
+        cleaned = re.sub(r'[\[\]]', '', lines[21])
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        row1 = np.fromstring(cleaned.strip(), sep=' ')
+
+        cleaned = re.sub(r'[\[\]]', '', lines[22])
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        row2 = np.fromstring(cleaned.strip(), sep=' ')
+
+        cleaned = re.sub(r'[\[\]]', '', lines[23])
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        row3 = np.fromstring(cleaned.strip(), sep=' ')
+
+        self.t_cam2gripper = np.array([
+            row1,
+            row2,
+            row3
+        ])
+
+
+        self.T_cam2gripper = np.vstack([
+            np.hstack([self.R_cam2gripper, self.t_cam2gripper]),
+            np.array([0, 0, 0, 1])
+        ])
 
         IC_width = 60
         IC_length = 80
@@ -56,6 +95,12 @@ class Camera:
             [IC_length/2, IC_width/2, 0],  # Corner 3
             [IC_length/2, -IC_width/2, 0]   # Corner 4
         ], dtype=np.float32)
+
+        bottom_width = 60
+        self.bottom_edge = np.array([
+            [-bottom_width/2, 0, 0], # End 1
+            [bottom_width/2, 0, 0] # End 2
+        ])
 
     def connect(self, camera_id, width, height) -> None:
         self.cap = cv.VideoCapture(camera_id) 
@@ -119,7 +164,7 @@ class Camera:
             gray_gray = cv.cvtColor(gray_region, cv.COLOR_BGR2GRAY)
 
 
-            kernel = cv.getStructuringElement(cv.MORPH_RECT, (5, 5))
+            kernel = cv.getStructuringElement(cv.MORPH_RECT, (11, 11))
 
             # Apply Erosion
             eroded = cv.erode(gray_gray, kernel, iterations=ero)
@@ -149,91 +194,62 @@ class Camera:
             if contours:
                 contour = max(contours, key=cv.contourArea)
                 
-                # # Get bounding rectangle or mask
-                # x, y, w, h = cv.boundingRect(contour)
-
-                # # Crop the original image to the bounding box of the biggest contour
-                # cropped = frame[y:y+h, x:x+w]
-
-                # # Show result
-                # cv.imshow('Biggest Contour Region', cropped)
-
-
-
-                # Calculating contour center x coordinate
-                M = cv.moments(contour)
-
                 rect = cv.minAreaRect(contour)  # Get the bounding rectangle
-                center_rect, size_rect, angle_rect = rect
-                print(center_rect, angle_rect)
+                center_rect, (rect_width, rect_height), angle_rect = rect
+
+                rect = cv.minAreaRect(contour)           # Get the rotated rectangle
+                box = cv.boxPoints(rect)                 # Get the 4 corner points
+                box = box.astype(int)
+
+                box_sorted = self.sort_points(box,4)
+
+                # Optionally: label the points
+                for i, point in enumerate(box_sorted):
+                    x, y = point
+                    cv.circle(frame, (x, y), 5, (0, 255, 255), -1)
+                    cv.putText(frame, f"{i}", (x+5, y-5), cv.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv.LINE_AA)
+
+                center_rect = [int(min(center_rect)), int(max(center_rect))]
+
+                if rect_width < rect_height:
+                    rect_width, rect_height = rect_height, rect_width
+                    angle_rect = angle_rect - 90
+
+                #print(center_rect, rect_width, rect_height, angle_rect)
                 
-                center_rect = [int(center_rect[0]), int(center_rect[1])]
                 cv.circle(edges, center_rect, 5, (255, 255, 0), 2)
-                cv.drawContours(edges, [contour], -1, (0,255,0), 2)
 
-            cv.imshow('Image show', edges)
+                # Given: pt1_2d, pt2_2d (pixels), camera matrix K, known length L, and T_cam_to_robot
+
+                # 1. Convert 2D points to normalized rays
+                K_inv = np.linalg.inv(self.camera_matrix)
+                ray1 = K_inv @ np.array([box_sorted[0][0], box_sorted[0][1], 1])
+                ray2 = K_inv @ np.array([box_sorted[1][0], box_sorted[1][1], 1])
+                ray1 /= np.linalg.norm(ray1)
+                ray2 /= np.linalg.norm(ray2)
+
+                # 2. Calculate scale (depth) d
+                d = 0.06 / np.linalg.norm(ray1 - ray2)
+
+                # 3. Calculate 3D points in camera frame
+                pt1_3d_cam = ray1 * d
+                pt2_3d_cam = ray2 * d
+
+                # 4. Convert to robot frame
+                pt1_3d_robot = self.T_cam2gripper @ np.array([pt1_3d_cam[0], pt1_3d_cam[1], pt1_3d_cam[2], 1])
+                pt2_3d_robot = self.T_cam2gripper @ np.array([pt2_3d_cam[0], pt2_3d_cam[1], pt2_3d_cam[2], 1])
+
+                pt1_3d_robot = np.round(pt1_3d_robot, 3)
+                pt2_3d_robot = np.round(pt2_3d_robot, 3)
+
+                print("Points: ",pt1_3d_robot, pt2_3d_robot)
+
+            cv.imshow('Edges', edges)
             cv.waitKey(1)
-            cv.imshow('Gray', gray_gray)
+            cv.imshow('Frame', frame)
             cv.waitKey(1)
-            cv.imshow('Dilated', dilated)
-            cv.waitKey(1)
-            cv.imshow('Thresh', thresh)
-            cv.waitKey(1)
-
-
-    def coords(self, points, points_sorted, frame):
-        points_sorted = np.array(points_sorted, dtype=np.float32)
-
-        # Maybe use cv.SOLVEPNP_P3P, but it only works for 4 points cv.SOLVEPNP_EPNP
-        if len(points_sorted) == 4:
-            success, rotation_vector, translation_vector = cv.solvePnP(points, points_sorted, camera_matrix, distortion_coeffs, flags=cv.SOLVEPNP_P3P)
-        else:
-            print("Incorrect number of corners")
-        
-        if success:
-            rotation_matrix, _ = cv.Rodrigues(rotation_vector)
-            cube_center_object_space = np.mean(points, axis=0)
-            cube_center_camera_space = np.dot(rotation_matrix, cube_center_object_space.reshape(-1, 1)) + translation_vector
-
-            coordinates_camera_space = np.round(cube_center_camera_space.ravel()[:3]).astype(int)
-
-            # Yaw, pitch, roll
-            try:
-                U, _, Vt = np.linalg.svd(rotation_matrix)
             
-                # Compute the new rotation matrix
-                # possible alternative is to use Singular Value Decomposition (SVD)
-                # on the rotation matrix to extract the rotation angles directly.
-                # This method is less susceptible to some of the numerical instability issues that can arise from Euler angle calculations. 
-                R = np.dot(U, Vt)
-                yaw = math.atan2(R[1, 0], R[0, 0])
 
-                yaw = round(np.degrees(yaw))     
-                
-
-                # # Project the 3D points to 2D image points using the pose (rvec, tvec)
-                # img_points, _ = cv.projectPoints(points, rotation_vector, translation_vector, camera_matrix, distortion_coeffs)
-
-                # # Visualize the projected points on the image (assuming 'frame' is your video frame)
-                # for point in img_points:
-                #     x, y = point.ravel()
-                #     cv.circle(frame, (int(x), int(y)), 5, (255, 255, 0), -1)  # Draw green dots
-                
-                
-            except Exception as e:
-                print(f"Error in angle calculation: {e}")
-                return None
-
-            coordinates = np.round(coordinates_camera_space.ravel()[:3]).astype(int).tolist()
-            
-        
-            #Remove z which has index = 2
-            coordinates.pop(2)
-                    
-            return coordinates, yaw
-        else:
-            print("Solve PNP error")
-            return None, None
 
     def sort_points(self, points, number):
         
@@ -266,8 +282,8 @@ class Camera:
         cv.createTrackbar("V low", "Camera params", 0, 255, lambda x: None)
 
         cv.setTrackbarPos("H low", "Camera params", 60)
-        cv.setTrackbarPos("S low", "Camera params", 40)
-        cv.setTrackbarPos("V low", "Camera params", 45)
+        cv.setTrackbarPos("S low", "Camera params", 70)
+        cv.setTrackbarPos("V low", "Camera params", 70)
         
         cv.createTrackbar("H upper", "Camera params", 255, 255, lambda x: None)
         cv.createTrackbar("S upper", "Camera params", 255, 255, lambda x: None)
@@ -279,8 +295,8 @@ class Camera:
         cv.createTrackbar("Erosion", "Camera params", 1, 20, lambda x: None)
         cv.createTrackbar("Dilation", "Camera params", 1, 20, lambda x: None)
 
-        cv.setTrackbarPos("Erosion", "Camera params", 4)
-        cv.setTrackbarPos("Dilation", "Camera params", 4)
+        cv.setTrackbarPos("Erosion", "Camera params", 2)
+        cv.setTrackbarPos("Dilation", "Camera params", 2)
 
     def update(self):
         pass
