@@ -11,7 +11,7 @@ import gripper
 HOME = [-0.1, 0.766, 0.1, 0, 3.1415, 0]
 
 max_X = 0.1
-min_X = -0.5
+min_X = -0.2
 max_Y = 0.9
 min_Y = 0.7
 max_Z = 0.2
@@ -33,9 +33,12 @@ gripper.connect()
 def is_within_bounds(position):
     x, y, z = position
     
-    if 
+    result = [
+    1 if x < min_X else (-1 if x > max_X else 0),
+    1 if y < min_Y else (-1 if y > max_Y else 0),
+    1 if z < min_Z else (-1 if z > max_Z else 0)]
 
-    return (min_X <= x, x <= max_X, min_Y <= y, y <= max_Y, min_Z <= z, z <= max_Z)
+    return np.array(result)
 
 while True:
     pose_from = receiver.get_pose()
@@ -71,9 +74,13 @@ while True:
     if area > 10000 and camera_pose.all() != 0:
         print(velocity_vector)
         escape_vector = is_within_bounds(pose_from[:3])
-        if not escape_vector.any:
-            new_velocity_vector = escape_vector * [0,0,]
-            URRobot.speedl([0,0,0,0,0,0], 0.05, 5)
+        print(escape_vector)
+        if not escape_vector.any() == 0:
+            nvv = escape_vector.T * np.array([0.1,0.1,0.1])
+            nvv = nvv.astype(float).tolist()
+            new_velocity_vector = [nvv[0], nvv[1], nvv[2], 0, 0, 0]
+            print("NVV: ",new_velocity_vector)
+            URRobot.speedl(new_velocity_vector, 0.05, 5)
         else:
             URRobot.speedl(velocity_vector, 1, 5)
     else:

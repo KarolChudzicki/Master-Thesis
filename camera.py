@@ -280,7 +280,7 @@ class Camera:
                 #print("Box sorted: ", box_sorted[0], box_sorted[1])
 
             else:
-                return (0, 0), 0
+                return np.array([0, 0]), 0
             
 
 
