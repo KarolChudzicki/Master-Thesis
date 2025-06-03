@@ -60,7 +60,23 @@ class URData:
                     logging.warning("Incomplete data or no data")
             except Exception as e:
                 logging.warning(f"Exception in receive loop: {e}")
-
+                self.running = False
+        self.reconnect()
+    
+    def reconnect(self):
+        while not self.running:
+            try:
+                logging.info("Attempting to reconnect...")
+                self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.s.connect((self.host, self.port))
+                self.s.settimeout(0.1)
+                self.running = True
+                self.thread = threading.Thread(target=self._receive_loop, daemon=True)
+                self.thread.start()
+                logging.info("Reconnected successfully.")
+            except Exception as e:
+                logging.error(f"Reconnect failed: {e}")
+                time.sleep(5)  # wait and try again
 
     def get_pose(self):
         with self.lock:

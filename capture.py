@@ -25,9 +25,7 @@ while n > 0:
         cv.imwrite("calibration_images/captured_image"+ str(n) +".jpg", frame)
         print("Image saved as 'calibration_images/captured_image'"+ str(n) +".jpg")
         n = n - 1
-    elif key != ord('q'):
-
-        toggle = False
+    
     if key == 27:
         break
         

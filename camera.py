@@ -103,7 +103,7 @@ class Camera:
         ])
 
     def connect(self, camera_id, width, height) -> None:
-        self.cap = cv.VideoCapture(camera_id) 
+        self.cap = cv.VideoCapture(camera_id, cv.CAP_DSHOW) 
         # Set desired resolution
         self.cap.set(cv.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, height)
@@ -123,8 +123,13 @@ class Camera:
             
             # ==================== Crop the image to the valid region of interest ====================
             x, y, w, h = roi
-            undistorted_img = undistorted_img[y:y+h, ((x+w)//2-width//2):((x+w)//2+width//2)]
+            #undistorted_img = undistorted_img[y:y+h, ((x+w)//2-width//2):((x+w)//2+width//2)]
+            undistorted_img = undistorted_img[y:y+h, x:x+w]
             frame = undistorted_img
+
+            # CROPPING THE IMAGE
+            cv.rectangle(frame, (0, 0), (width//2, h), (0, 0, 0), -1)
+            cv.rectangle(frame, (w - width//2, 0), (w, h), (0, 0, 0), -1)
 
             # ==================== Get parameters from sliders ====================
 
@@ -223,31 +228,59 @@ class Camera:
 
                 # 1. Convert 2D points to normalized rays
                 K_inv = np.linalg.inv(self.camera_matrix)
-                ray1 = K_inv @ np.array([box_sorted[0][0], box_sorted[0][1], 1])
-                ray2 = K_inv @ np.array([box_sorted[1][0], box_sorted[1][1], 1])
-                ray1 /= np.linalg.norm(ray1)
-                ray2 /= np.linalg.norm(ray2)
+                P1 = np.array([box_sorted[0][0], box_sorted[0][1], 1])
+                P2 = np.array([box_sorted[1][0], box_sorted[1][1], 1])
+                #print("POINTS:", P1, P2)
 
+                ray1 = K_inv @ P1
+                ray2 = K_inv @ P2
+                # ray1 /= np.linalg.norm(ray1)
+                # ray2 /= np.linalg.norm(ray2)
                 # 2. Calculate scale (depth) d
                 d = 0.06 / np.linalg.norm(ray1 - ray2)
+                
 
                 # 3. Calculate 3D points in camera frame
                 pt1_3d_cam = ray1 * d
                 pt2_3d_cam = ray2 * d
 
+                #print("Points camera: ",pt1_3d_cam, pt2_3d_cam)
+
+                middle_3d_cam = (pt1_3d_cam + pt2_3d_cam) / 2
+                #print("Middle: ", middle_3d_cam)
+                middle_3d_cam = self.R_cam2gripper @ middle_3d_cam
+                #print("Middle: ", middle_3d_cam)
                 # 4. Convert to robot frame
-                pt1_3d_robot = self.T_cam2gripper @ np.array([pt1_3d_cam[0], pt1_3d_cam[1], pt1_3d_cam[2], 1])
-                pt2_3d_robot = self.T_cam2gripper @ np.array([pt2_3d_cam[0], pt2_3d_cam[1], pt2_3d_cam[2], 1])
+                #pt1_3d_robot = self.T_cam2gripper @ np.array([middle_3d_cam[0], middle_3d_cam[1], middle_3d_cam[2], 1])
+                # pt2_3d_robot = self.T_cam2gripper @ np.array([pt2_3d_cam[0], pt2_3d_cam[1], pt2_3d_cam[2], 1])
+                
+                pt_3d_robot = self.t_cam2gripper.T - middle_3d_cam
 
-                pt1_3d_robot = np.round(pt1_3d_robot, 3)
-                pt2_3d_robot = np.round(pt2_3d_robot, 3)
+                #print(pt_3d_robot)
 
-                print("Points: ",pt1_3d_robot, pt2_3d_robot)
+    
+                # pt1_3d_robot = np.round(pt1_3d_robot, 3)
+                # pt2_3d_robot = np.round(pt2_3d_robot, 3)
 
-            cv.imshow('Edges', edges)
-            cv.waitKey(1)
-            cv.imshow('Frame', frame)
-            cv.waitKey(1)
+                # Draw coordinate system
+                cv.arrowedLine(frame, (10,10), (10,60), (255,255,0), 2)
+                cv.putText(frame, 'Y', (15,60), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,0), 2)
+                cv.arrowedLine(frame, (10,10), (60,10), (255,0,255), 2)
+                cv.putText(frame, 'X', (50,30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 2)
+                cv.circle(frame, (w//2, h//2), 50, (255, 255, 255), 2)
+                cv.imshow('Edges', edges)
+                cv.waitKey(1)
+                cv.imshow('Frame', frame)
+                cv.waitKey(1)
+
+                area = rect_height*rect_width
+                
+                return pt_3d_robot[0], area
+                #print("Points: ",pt1_3d_robot, pt2_3d_robot, (pt1_3d_robot+pt2_3d_robot)/2)
+                #print("Box sorted: ", box_sorted[0], box_sorted[1])
+
+            else:
+                return (0, 0), 0
             
 
 
@@ -282,7 +315,7 @@ class Camera:
         cv.createTrackbar("V low", "Camera params", 0, 255, lambda x: None)
 
         cv.setTrackbarPos("H low", "Camera params", 60)
-        cv.setTrackbarPos("S low", "Camera params", 70)
+        cv.setTrackbarPos("S low", "Camera params", 65)
         cv.setTrackbarPos("V low", "Camera params", 70)
         
         cv.createTrackbar("H upper", "Camera params", 255, 255, lambda x: None)
@@ -295,7 +328,7 @@ class Camera:
         cv.createTrackbar("Erosion", "Camera params", 1, 20, lambda x: None)
         cv.createTrackbar("Dilation", "Camera params", 1, 20, lambda x: None)
 
-        cv.setTrackbarPos("Erosion", "Camera params", 2)
+        cv.setTrackbarPos("Erosion", "Camera params", 3)
         cv.setTrackbarPos("Dilation", "Camera params", 2)
 
     def update(self):

@@ -13,7 +13,7 @@ for i in range(10):
     time.sleep(0.1)
 
 # Open the camera (1 refers to the default camera)
-cap = cv.VideoCapture(1)
+cap = cv.VideoCapture(1, cv.CAP_DSHOW)
 
 # Set desired resolution
 cap.set(cv.CAP_PROP_FRAME_WIDTH, 1280)
@@ -109,7 +109,8 @@ print(TCP_pose_array)
 
 with open('calib_param_hand_eye.txt', 'w') as file:
     file.write("===============TCP POSE===============\n")
-    file.write(str(TCP_pose_array) + '\n')
+    for i in range(15):
+        file.write(str(TCP_pose_array[i]) + '\n')
 
 # Release the camera
 cap.release()
