@@ -7,6 +7,7 @@ import ur
 from urData import URData
 import camera
 import gripper
+import conveyor_belt
 
 HOME = [-0.1, 0.766, 0.1, 0, 3.1415, 0]
 
@@ -15,10 +16,11 @@ min_X = -0.2
 max_Y = 0.9
 min_Y = 0.7
 max_Z = 0.2
-min_Z = -0.105
+min_Z = -0.1
 
 URRobot = ur.URRobot()
 gripper = gripper.Gripper()
+#conveyorBelt = conveyor_belt.conveyorBelt()
 
 URRobot.movel(HOME, 0.01, 0.05, 5)
 
@@ -30,6 +32,7 @@ camera.initSlider()
 gripper.activate()
 gripper.connect()
 
+
 def is_within_bounds(position):
     x, y, z = position
     
@@ -40,41 +43,59 @@ def is_within_bounds(position):
 
     return np.array(result)
 
+
 while True:
     pose_from = receiver.get_pose()
     camera_pose, area = camera.capture(600)
     #print(camera_pose)
     # Get X and Y coords
-    pose_to = pose_from[:2] - camera_pose[:2]
+    pose_to = pose_from[:3] - camera_pose[:3]
+    pose_to[2] = min_Z
 
-    #print(pose_to, pose_from[:2])
+    print("pose to: ",pose_to)
     
-    distance = pose_to - pose_from[:2]
+    distance = pose_to - pose_from[:3]
     distance = np.linalg.norm(distance)
     #print("Distance: ", distance)
-    dt = 0.1
-    max_speed = 1
+    max_speed = 0.3
     min_speed = 0
-    k = 50
-    speed = min(max_speed, max(min_speed, k * distance))
-    if speed < 0.01:
-        speed = 0
+    k = 3
+    # speed = min(max_speed, max(min_speed, k * distance))
+    # if speed < 0.01:
+    #     speed = 0
 
-    print("Speed: ",speed)
+    if distance < 0.05:
+        # Smooth deceleration near target
+        scale = distance * 0.8  # 1 → 0
+        
+        #speed = min(max_speed, max(min_speed, k * distance))
+        speed = max(min_speed, max_speed * (scale ** 2))  # quadratic decay
+        print("Scale - ", scale, "Speed - ", speed)
+        if distance < 0.005:
+            speed = 0
+            print("Speed")
+    else:
+        speed = max_speed
+
+
+    #print("Speed: ",speed)
 
     #Calculate direction and velocity
-    direction = pose_to - pose_from[:2]
+    direction = pose_to - pose_from[:3]
     #direction[:2] /= np.linalg.norm(direction[:2])  # normalize position part
 
     velocity = np.round(direction * speed,5)
     velocity = velocity.astype(float).tolist()
-    #print(velocity)
-    velocity_vector = [velocity[0], -velocity[1], 0, 0, 0, 0]
+    print("Vel: ",velocity)
+    print("Pose from", pose_from[2])
+    if pose_from[2] <= -0.095: velocity[2] = 0
+    velocity_vector = [velocity[0], -velocity[1], velocity[2], 0, 0, 0]
+    #print(velocity_vector)
     
-    if area > 10000 and camera_pose.all() != 0:
-        print(velocity_vector)
+    if camera_pose.all() != 0:
+        print("Vel vector: ",velocity_vector)
         escape_vector = is_within_bounds(pose_from[:3])
-        print(escape_vector)
+        print("Esc vector: ",escape_vector)
         if not escape_vector.any() == 0:
             nvv = escape_vector.T * np.array([0.1,0.1,0.1])
             nvv = nvv.astype(float).tolist()
@@ -90,9 +111,9 @@ while True:
     
 
     key = cv.waitKey(1) & 0xFF
-    if key == ord('o') and not toggle:
+    if key == ord('c') and not toggle:
         gripper.open_close(POSITION_REQUEST=0, SPEED=50, FORCE=1)
-    elif key == ord('c') and not toggle:
+    elif key == ord('o') and not toggle:
         gripper.open_close(POSITION_REQUEST=85, SPEED=50, FORCE=1)
     else:
         toggle = False

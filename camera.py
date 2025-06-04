@@ -255,8 +255,8 @@ class Camera:
                 # pt2_3d_robot = self.T_cam2gripper @ np.array([pt2_3d_cam[0], pt2_3d_cam[1], pt2_3d_cam[2], 1])
                 
                 pt_3d_robot = self.t_cam2gripper.T - middle_3d_cam
+                pt_3d_robot[0][0] += 0.04
 
-                #print(pt_3d_robot)
 
     
                 # pt1_3d_robot = np.round(pt1_3d_robot, 3)
@@ -270,17 +270,20 @@ class Camera:
                 cv.circle(frame, (w//2, h//2), 50, (255, 255, 255), 2)
                 cv.imshow('Edges', edges)
                 cv.waitKey(1)
+                cv.imshow('Edges', gray_gray)
+                cv.waitKey(1)
                 cv.imshow('Frame', frame)
                 cv.waitKey(1)
 
                 area = rect_height*rect_width
-                
                 return pt_3d_robot[0], area
                 #print("Points: ",pt1_3d_robot, pt2_3d_robot, (pt1_3d_robot+pt2_3d_robot)/2)
                 #print("Box sorted: ", box_sorted[0], box_sorted[1])
 
             else:
-                return np.array([0, 0]), 0
+                cv.imshow('Frame', frame)
+                cv.waitKey(1)
+                return np.array([0, 0, 0]), 0
             
 
 
@@ -315,7 +318,7 @@ class Camera:
         cv.createTrackbar("V low", "Camera params", 0, 255, lambda x: None)
 
         cv.setTrackbarPos("H low", "Camera params", 60)
-        cv.setTrackbarPos("S low", "Camera params", 65)
+        cv.setTrackbarPos("S low", "Camera params", 55)
         cv.setTrackbarPos("V low", "Camera params", 70)
         
         cv.createTrackbar("H upper", "Camera params", 255, 255, lambda x: None)
