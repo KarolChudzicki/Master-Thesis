@@ -87,20 +87,6 @@ class Camera:
             np.array([0, 0, 0, 1])
         ])
 
-        IC_width = 60
-        IC_length = 80
-        self.IC_points = np.array([
-            [-IC_length/2, -IC_width/2, 0],  # Corner 1
-            [-IC_length/2, IC_width/2, 0],  # Corner 2
-            [IC_length/2, IC_width/2, 0],  # Corner 3
-            [IC_length/2, -IC_width/2, 0]   # Corner 4
-        ], dtype=np.float32)
-
-        bottom_width = 60
-        self.bottom_edge = np.array([
-            [-bottom_width/2, 0, 0], # End 1
-            [bottom_width/2, 0, 0] # End 2
-        ])
 
     def connect(self, camera_id, width, height) -> None:
         self.cap = cv.VideoCapture(camera_id, cv.CAP_DSHOW) 
@@ -142,9 +128,6 @@ class Camera:
             
             dil = cv.getTrackbarPos("Dilation", "Camera params") 
             ero = cv.getTrackbarPos("Erosion", "Camera params") 
-
-            canny_low = cv.getTrackbarPos("Canny", "Camera params") 
-            thresh_low = cv.getTrackbarPos("Thresh", "Camera params")
 
             lower_bound = (h_low, s_low, v_low)
             upper_bound = (h_up, s_up, v_up)
@@ -324,9 +307,6 @@ class Camera:
         cv.createTrackbar("H upper", "Camera params", 255, 255, lambda x: None)
         cv.createTrackbar("S upper", "Camera params", 255, 255, lambda x: None)
         cv.createTrackbar("V upper", "Camera params", 255, 255, lambda x: None)
-        
-        cv.createTrackbar("Canny", "Camera params", 1, 200, lambda x: None)
-        cv.createTrackbar("Thresh", "Camera params", 1, 255, lambda x: None)
 
         cv.createTrackbar("Erosion", "Camera params", 1, 20, lambda x: None)
         cv.createTrackbar("Dilation", "Camera params", 1, 20, lambda x: None)
