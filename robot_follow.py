@@ -34,9 +34,9 @@ class robotFollow:
 
         return np.array(result)
 
-    def move_to(self):
+    def move_to(self, part):
         pose_from = self.receiver.get_pose()
-        camera_pose, area = self.camera.capture(600)
+        camera_pose, area = self.camera.capture(600, part)
 
         pose_to = pose_from[:3] - camera_pose[:3]
         pose_to[2] = self.min_Z

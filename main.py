@@ -32,8 +32,8 @@ gripper.connect()
 
 while True:
     
-    URRobot.speedl(robotFollow.move_to(), 0.05, 3)
-    print(robotFollow.move_to())
+    URRobot.speedl(robotFollow.move_to(0), 0.05, 3)
+    print(robotFollow.move_to(0))
 
 
     key = cv.waitKey(1) & 0xFF

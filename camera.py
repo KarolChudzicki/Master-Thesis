@@ -3,7 +3,7 @@ import time
 import numpy as np
 import math
 import re
-
+import json
 import serial
 import time
 import logging
@@ -87,6 +87,21 @@ class Camera:
             np.array([0, 0, 0, 1])
         ])
 
+        self.update_params()
+
+
+    def update_params(self):
+        # Load JSON data from file
+        self.data_json = [None]*3
+        with open("slider_params_TopCover.json", "r") as file:
+            self.data_json[0] = json.load(file)
+
+        with open("slider_params_IntegratedCircuit.json", "r") as file:
+            self.data_json[1] = json.load(file)
+
+        with open("slider_params_BottomCasing.json", "r") as file:
+            self.data_json[2] = json.load(file)
+        print("Params updated")
 
     def connect(self, camera_id, width, height) -> None:
         self.cap = cv.VideoCapture(camera_id, cv.CAP_DSHOW) 
@@ -96,7 +111,8 @@ class Camera:
         self.width = int(self.cap.get(cv.CAP_PROP_FRAME_WIDTH))
         self.height = int(self.cap.get(cv.CAP_PROP_FRAME_HEIGHT))
 
-    def capture(self, width) -> None:
+
+    def capture(self, width, part_number, show_or_not, from_json, params) -> np.array:
 
         (ret, frame) = self.cap.read()
         self.fps = self.cap.get(cv.CAP_PROP_FPS)
@@ -109,7 +125,6 @@ class Camera:
             
             # ==================== Crop the image to the valid region of interest ====================
             x, y, w, h = roi
-            #undistorted_img = undistorted_img[y:y+h, ((x+w)//2-width//2):((x+w)//2+width//2)]
             undistorted_img = undistorted_img[y:y+h, x:x+w]
             frame = undistorted_img
 
@@ -117,17 +132,30 @@ class Camera:
             cv.rectangle(frame, (0, 0), (width//2, h), (0, 0, 0), -1)
             cv.rectangle(frame, (w - width//2, 0), (w, h), (0, 0, 0), -1)
 
-            # ==================== Get parameters from sliders ====================
+            # ==================== Get parameters ====================
 
-            h_low = cv.getTrackbarPos("H low", "Camera params")
-            s_low = cv.getTrackbarPos("S low", "Camera params") 
-            v_low = cv.getTrackbarPos("V low", "Camera params") 
-            h_up = cv.getTrackbarPos("H upper", "Camera params") 
-            s_up = cv.getTrackbarPos("S upper", "Camera params") 
-            v_up = cv.getTrackbarPos("V upper", "Camera params") 
+            if from_json:
             
-            dil = cv.getTrackbarPos("Dilation", "Camera params") 
-            ero = cv.getTrackbarPos("Erosion", "Camera params") 
+                h_low = self.data_json[part_number]["H low"]
+                s_low = self.data_json[part_number]["S low"]
+                v_low = self.data_json[part_number]["V low"]
+                h_up = self.data_json[part_number]["H up"]
+                s_up = self.data_json[part_number]["S up"]
+                v_up =  self.data_json[part_number]["V up"]
+                    
+                dil = self.data_json[part_number]["Dilation"]
+                ero = self.data_json[part_number]["Erosion"]
+
+            else:
+                h_low = params[0]
+                s_low = params[1]
+                v_low = params[2]
+                h_up = params[3]
+                s_up = params[4]
+                v_up =  params[5]
+                    
+                dil = params[6]
+                ero = params[7]
 
             lower_bound = (h_low, s_low, v_low)
             upper_bound = (h_up, s_up, v_up)
@@ -164,109 +192,77 @@ class Camera:
 
             edges = cv.Canny(thresh, 150, 200)
 
-            
-            # result = cv.bitwise_and(hsv, frame, mask=mask)
-
-            # frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-            # frame_blurred = cv.GaussianBlur(frame_gray, (9,9), 0)
-
-            #_, frame_thresholded = cv.threshold(frame_blurred, thresh_low, 255, cv.THRESH_BINARY_INV)
-
-            # edges = cv.Canny(frame_blurred, canny_low, 200)
-
             contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-        
-        
-        
-    
-            if contours:
-                contour = max(contours, key=cv.contourArea)
-                
-                rect = cv.minAreaRect(contour)  # Get the bounding rectangle
-                center_rect, (rect_width, rect_height), angle_rect = rect
 
-                rect = cv.minAreaRect(contour)           # Get the rotated rectangle
-                box = cv.boxPoints(rect)                 # Get the 4 corner points
-                box = box.astype(int)
-
-                box_sorted = self.sort_points(box,4)
-
-                # Optionally: label the points
-                for i, point in enumerate(box_sorted):
-                    x, y = point
-                    cv.circle(frame, (x, y), 5, (0, 255, 255), -1)
-                    cv.putText(frame, f"{i}", (x+5, y-5), cv.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv.LINE_AA)
-
-                center_rect = [int(min(center_rect)), int(max(center_rect))]
-
-                if rect_width < rect_height:
-                    rect_width, rect_height = rect_height, rect_width
-                    angle_rect = angle_rect - 90
-
-                #print(center_rect, rect_width, rect_height, angle_rect)
-                
-                cv.circle(edges, center_rect, 5, (255, 255, 0), 2)
-
-                # Given: pt1_2d, pt2_2d (pixels), camera matrix K, known length L, and T_cam_to_robot
-
-                # 1. Convert 2D points to normalized rays
-                K_inv = np.linalg.inv(self.camera_matrix)
-                P1 = np.array([box_sorted[0][0], box_sorted[0][1], 1])
-                P2 = np.array([box_sorted[1][0], box_sorted[1][1], 1])
-                #print("POINTS:", P1, P2)
-
-                ray1 = K_inv @ P1
-                ray2 = K_inv @ P2
-                # ray1 /= np.linalg.norm(ray1)
-                # ray2 /= np.linalg.norm(ray2)
-                # 2. Calculate scale (depth) d
-                d = 0.06 / np.linalg.norm(ray1 - ray2)
-                
-
-                # 3. Calculate 3D points in camera frame
-                pt1_3d_cam = ray1 * d
-                pt2_3d_cam = ray2 * d
-
-                #print("Points camera: ",pt1_3d_cam, pt2_3d_cam)
-
-                middle_3d_cam = (pt1_3d_cam + pt2_3d_cam) / 2
-                #print("Middle: ", middle_3d_cam)
-                middle_3d_cam = self.R_cam2gripper @ middle_3d_cam
-                #print("Middle: ", middle_3d_cam)
-                # 4. Convert to robot frame
-                #pt1_3d_robot = self.T_cam2gripper @ np.array([middle_3d_cam[0], middle_3d_cam[1], middle_3d_cam[2], 1])
-                # pt2_3d_robot = self.T_cam2gripper @ np.array([pt2_3d_cam[0], pt2_3d_cam[1], pt2_3d_cam[2], 1])
-                
-                pt_3d_robot = self.t_cam2gripper.T - middle_3d_cam
-                pt_3d_robot[0][0] += 0.04
-
-
-    
-                # pt1_3d_robot = np.round(pt1_3d_robot, 3)
-                # pt2_3d_robot = np.round(pt2_3d_robot, 3)
-
-                # Draw coordinate system
-                cv.arrowedLine(frame, (10,10), (10,60), (255,255,0), 2)
-                cv.putText(frame, 'Y', (15,60), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,0), 2)
-                cv.arrowedLine(frame, (10,10), (60,10), (255,0,255), 2)
-                cv.putText(frame, 'X', (50,30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 2)
-                cv.circle(frame, (w//2, h//2), 50, (255, 255, 255), 2)
+            # Show frames
+            if show_or_not:
                 cv.imshow('Edges', edges)
-                cv.waitKey(1)
                 cv.imshow('Edges', gray_gray)
                 cv.waitKey(1)
-                cv.imshow('Frame', frame)
-                cv.waitKey(1)
+            
+            return contours, edges, thresh
+        
 
-                area = rect_height*rect_width
-                return pt_3d_robot[0], area
-                #print("Points: ",pt1_3d_robot, pt2_3d_robot, (pt1_3d_robot+pt2_3d_robot)/2)
-                #print("Box sorted: ", box_sorted[0], box_sorted[1])
 
-            else:
-                cv.imshow('Frame', frame)
-                cv.waitKey(1)
-                return np.array([0, 0, 0]), 0
+    def calculate_coords(self, contours, frame):
+        if not contours:
+            cv.imshow('Frame', frame)
+            cv.waitKey(1)
+            return np.array([0, 0, 0]), 0
+
+        contour = max(contours, key=cv.contourArea)
+        rect = cv.minAreaRect(contour)
+        center_rect, (rect_width, rect_height), angle_rect = rect
+
+        box = cv.boxPoints(rect)
+        box = box.astype(int)
+        box_sorted = self.sort_points(box, 4)
+
+        # Optionally: label the points
+        for i, point in enumerate(box_sorted):
+            x, y = point
+            cv.circle(frame, (x, y), 5, (0, 255, 255), -1)
+            cv.putText(frame, f"{i}", (x + 5, y - 5), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv.LINE_AA)
+
+        center_rect = [int(min(center_rect)), int(max(center_rect))]
+
+        if rect_width < rect_height:
+            rect_width, rect_height = rect_height, rect_width
+            angle_rect -= 90
+
+        #cv.circle(edges, center_rect, 5, (255, 255, 0), 2)
+
+        # 3D reconstruction
+        K_inv = np.linalg.inv(self.camera_matrix)
+        P1 = np.array([box_sorted[0][0], box_sorted[0][1], 1])
+        P2 = np.array([box_sorted[1][0], box_sorted[1][1], 1])
+
+        ray1 = K_inv @ P1
+        ray2 = K_inv @ P2
+
+        d = 0.06 / np.linalg.norm(ray1 - ray2)
+
+        pt1_3d_cam = ray1 * d
+        pt2_3d_cam = ray2 * d
+        middle_3d_cam = (pt1_3d_cam + pt2_3d_cam) / 2
+        middle_3d_cam = self.R_cam2gripper @ middle_3d_cam
+
+        pt_3d_robot = self.t_cam2gripper.T - middle_3d_cam
+        pt_3d_robot[0][0] += 0.04
+
+        # Drawing
+        h, w = frame.shape[:2]
+        cv.arrowedLine(frame, (10, 10), (10, 60), (255, 255, 0), 2)
+        cv.putText(frame, 'Y', (15, 60), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
+        cv.arrowedLine(frame, (10, 10), (60, 10), (255, 0, 255), 2)
+        cv.putText(frame, 'X', (50, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+        cv.circle(frame, (w // 2, h // 2), 50, (255, 255, 255), 2)
+
+        cv.imshow('Frame', frame)
+
+        area = rect_height * rect_width
+        return pt_3d_robot[0], area
+
             
 
 

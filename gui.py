@@ -5,6 +5,11 @@ from PIL import Image, ImageTk
 import camera
 import json
 
+
+camera = camera.Camera()
+camera.connect(1, 1280, 720)
+
+
 class Gui:
     def __init__(self, window):
         self.window = window
@@ -12,7 +17,7 @@ class Gui:
         self.window.geometry("1200x500")
         self.window.resizable(False, False)
         self.window.configure(bg="white")  # Helps see layout during testing
-        self.camera = camera.Camera()
+        
         
 
         # Area for camera feed
@@ -23,13 +28,17 @@ class Gui:
         self.calibration_button = tk.Button(self.window, text="Calibrate", command=self.sliders_popup, height=2, width=60)
         self.calibration_button.place(x=700, y=10)
         
-        # Start button placed below the feed
+        # Start button - starts the system
         self.start_button = tk.Button(self.window, text="Start", command=self.quit, height=2, width=60)
         self.start_button.place(x=700, y=60)
         
-        # Stop button placed below the feed
+        # Stop button - halts the program
         self.stop_button = tk.Button(self.window, text="Stop", command=self.quit, height=2, width=60)
         self.stop_button.place(x=700, y=110)
+
+        # Home button - homes the robot
+        self.home_button = tk.Button(self.window, text="Home", command=self.quit, height=2, width=60)
+        self.home_button.place(x=700, y=160)
         
         self.rect_size = 90
         self.rect_padding = 26
@@ -80,62 +89,82 @@ class Gui:
     def sliders_popup(self):
         self.sliders_window = tk.Toplevel(self.window)
         self.sliders_window.title("Calibration")
-        self.sliders_window.geometry("600x600")
+        self.sliders_window.geometry("1500x1000")
         self.sliders_window.resizable(False, False)
         self.sliders_window.configure(bg="gray20")
         
         self.sliders = {}
         self.default_params = [60,55,70,255,255,255,3,2]
         self.maximal_params = [255,255,255,255,255,255,20,20]
-        self.slider_names = ["H low", "S low", "V low", "H upper", "S upper", "V upper", "Erosion", "Dilation"]
+        self.slider_names = ["H low", "S low", "V low", "H up", "S up", "V up", "Erosion", "Dilation"]
         
         
         self.text_box_content_number = 0
         self.sliders = []
-        
+
         for i in range(len(self.default_params)):
             frame = tk.Frame(self.sliders_window, bg="gray30")
-            frame.pack(fill="x", padx=10, pady=5)
+            frame.grid(row=i, column=0, padx=5, pady=5, sticky="w")
 
             label = tk.Label(frame, text=self.slider_names[i], width=10, bg="gray30", fg="white")
             label.pack(side="left")
 
-            slider = tk.Scale(frame, from_= 0, to=self.maximal_params[i], orient="horizontal", bg="gray20", fg="white")
+            slider = tk.Scale(frame, from_=0, to=self.maximal_params[i], orient="horizontal", bg="gray20", fg="white", length=400)
             slider.set(self.default_params[i])
-            slider.pack(side="right", fill="x", expand=True)
-            
+            slider.pack(side="left")
+
             self.sliders.append(slider)
-        
+
+        # Camera feed area (right side)
+        self.feed_calib_area = Label(self.sliders_window, width=900, height=600, bg="black")
+        self.feed_calib_area.grid(row=0, column=1, rowspan=len(self.default_params), padx=5, pady=5)
+
+
+        # Row index after sliders (bottom row)
+        controls_row = len(self.default_params)
+
         self.prev_button = tk.Button(self.sliders_window, text="Previous", command=lambda: self.update_part(-1), height=2, width=10)
-        self.prev_button.place(x=10, y=450)
-        
-        self.next_button = tk.Button(self.sliders_window, text="Next", command=lambda: self.update_part(1), height=2, width=10)
-        self.next_button.place(x=510, y=450)
-        
-        
-        
+        self.prev_button.grid(row=controls_row, column=1, sticky="w", padx=5, pady=5)
+
         self.text_box = tk.Text(self.sliders_window, 
-                   width=30, height=1, 
-                   bg="#1e1e1e", fg="#f0f0f0", 
-                   font=("Consolas", 16),
-                   borderwidth=0, relief="flat",
-                   highlightthickness=0,
-                   highlightbackground="#555555",
-                   highlightcolor="#3399ff",
-                   wrap="word")
-        
+                                width=30, height=1, 
+                                bg="#1e1e1e", fg="#f0f0f0", 
+                                font=("Consolas", 16),
+                                borderwidth=0, relief="flat",
+                                highlightthickness=0,
+                                highlightbackground="#555555",
+                                highlightcolor="#3399ff",
+                                wrap="word")
         self.text_box.tag_configure("center", justify="center")
-        
         self.text_box.insert("1.0", self.text_box_content[0], "center")
         self.text_box.config(state="disabled")
-        self.text_box.place(x=120, y=458)
-        
-        
-        self.close_button = tk.Button(self.sliders_window, text="Close", command=self.sliders_window.destroy, height=2, width=10)
-        self.close_button.place(x=10, y=550)
-        
+        self.text_box.grid(row=controls_row, column=1, padx=5)
+
+        self.next_button = tk.Button(self.sliders_window, text="Next", command=lambda: self.update_part(1), height=2, width=10)
+        self.next_button.grid(row=controls_row, column=1, sticky="e", padx=5)
+
+        # Save and Close buttons below the previous row
         self.save_button = tk.Button(self.sliders_window, text="Save", command=self.save_params, height=2, width=10)
-        self.save_button.place(x=110, y=550)
+        self.save_button.grid(row=controls_row + 1, column=1, sticky="e", padx=5, pady=10)
+
+        self.close_button = tk.Button(self.sliders_window, text="Close", command=self.sliders_window.destroy, height=2, width=10)
+        self.close_button.grid(row=controls_row + 1, column=1, sticky="w", padx=5, pady=10)
+        
+        self.update_calib_feed()
+    
+    def update_calib_feed(self):
+        #camera.update_params()
+        if self.sliders_window.winfo_exists():
+            params = [slider.get() for slider in self.sliders]
+            _, edges, _ = camera.capture(width=600, part_number=self.text_box_content_number, show_or_not=False, from_json=False, params=params)
+            img = Image.fromarray(edges)
+            imgtk = ImageTk.PhotoImage(image=img)
+            self.feed_calib_area.imgtk = imgtk
+            self.feed_calib_area.config(image=imgtk)
+
+            #self.window.after(100, self.save_params)
+            
+            self.window.after(100, self.update_calib_feed)  # repeat after 100 ms
     
     def save_params(self):
         for i in range(len(self.sliders)):
@@ -143,7 +172,7 @@ class Gui:
             version = "_" + str(self.text_box_content[self.text_box_content_number])
             with open(f"slider_params{version}.json", "w") as f:
                 json.dump(params, f, indent=4)
-            print("Saved to file.")
+        
 
     def update_part(self, direction):
         self.text_box.config(state="normal")
@@ -163,6 +192,8 @@ class Gui:
         self.feed_area.imgtk = imgtk
         self.feed_area.config(image=imgtk)
 
+
+
     def quit(self):
         self.window.destroy()
         
@@ -177,6 +208,8 @@ def simulate_frame():
     dummy = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
     app.update_image(dummy)
     root.after(100, simulate_frame)
+
+
 
 app.update_indicators([0,1,0,1,1,0])
 

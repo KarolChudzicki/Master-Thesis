@@ -1,0 +1,64 @@
+\subsection{Graphical user interface (GUI)}
+Graphical interfaces are used to improve the understanding and facilitate the understanding
+of the system by the user. This project is not meant for external users, so it's not
+crucial to make it user-friendly. 
+Functionality of GUI:
+\begin{itemize}
+    \item Camera view - live view from the camera mounted to the robotic arm displaying
+    additional information from image processing pipeline, such as contour lines, corners
+    corner numbering etc. Allows for the user to assess the perfomance of the system.
+    \item Calibration - if needed a possibility to perform a calibration of parameters
+    used for image processing. 
+    \item Storage status - simple graphical way of displaying the status of the storage unit.
+    \item Start button - starts the whole sytem
+    \item Stop button - halts the program
+    \item Home button - sends a command to the robot to move to the home position
+\end{itemize}
+
+
+\subsection{Image processing pipeline}
+To begin the algorithm the first think is image processing pipeline.
+The frame captured by the camera needs to be processed to extract
+only the information that is important for the algorithm,
+while removing everything else.
+
+
+\begin{enumerate}
+    \item Undistorting and cropping the image -  the raw image from the camera is firstly 
+    corrected for lens distortion and cropped according to the region of intrest (ROI)
+    \item Reducing the region of intrest - further cropping the image by placing two black rectanges on the sides
+    of the frame. This method was chosen instead of cropping the whole image, because
+    by cropping the whole image coordinates from the camera are shifted
+    \item Parameter assignment - before applying image processing methods to the frame
+    predefined values must be extracted from a json files. Depending on the part that
+    was detected according json file is chosen.
+    \item Constrast enhancment - to improve the contrast of an image, particularly in
+    poor lighting conditions CLAHE (Contrast Limited Adaptive Histogram Equalization)
+    method is used. The image is converted to LAB color space in order to be able to work
+    on specific component of the image. LAB is an abbreviation of L - lightness, A - green-red component, B - blue-yellow
+    component. The lightness channel is what if being modified, keeping the rest unchanged.
+    \item Color segmentation - image is converted from LAB space to HSV space. HSV in
+    image processing is used to extract specific color ranges from the image. HSV is an
+    abbreviation of H - hue, S - saturation, V - value. After converting to HSV a mask is
+    applied to extract only pixels of specified color range.
+    \item Noise reduction - morphological operations are performed to reduce the noise
+    and remove small artifacts from the image.
+    \item Further noise reduction - to refine the image further dilation and erosion are
+    performed on the image. Their strength depends on the parameters in the json file.
+    \item Contour detection - to extract the contours from the image canny edge detection
+    is applied. It identifies sharp transitions, which correspond to object boundaries.
+    After the Canny filtering, the contours are extracted.
+    \item Contour filtering - to make sure that the program detected an actual part, not
+    some artifact in the background. Contour of maximal size is extracted from The
+    contours list.
+    \item Corner extraction - for further coordinate calculation it's neccessary to
+    have all four corners of the part, since all the parts used for this project are
+    rectangular.
+\end{enumerate}
+
+
+\subsection{Gripper}
+For the robotic arm to interact with it's environment a device called effector is used. 
+The robot used in this project utlizes a robotiq - two finger gripper. To control it
+a driver had to be written. This gripper uses a Modbus RTU connection and 
+for the purpose of controling it a python library called serial is used. 

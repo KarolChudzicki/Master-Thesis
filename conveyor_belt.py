@@ -46,16 +46,12 @@ class conveyorBelt:
     # ==================== Function for speed control ====================  
     def setSpeed(self, speed):
         if speed >= 0 and speed <= 1000:
-            self.client.write_register(address=given_frequency_address, value=speed, unit=1)
+            self.client.write_register(address=given_frequency_address, value=speed)
             print(f"Speed set to {speed}")
         else:
             print("Incorrect speed value")
 
 
-
-
-
-    
 
 
 
