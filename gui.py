@@ -18,8 +18,11 @@ class Gui:
         self.window.resizable(False, False)
         self.window.configure(bg="white")  # Helps see layout during testing
         
-        
+        self.main_window()
 
+        
+    def main_window(self, part):
+        
         # Area for camera feed
         self.feed_area = Label(self.window, width=640, height=480, bg="black")
         self.feed_area.place(x=10, y=10)
@@ -77,7 +80,11 @@ class Gui:
                 font=("Helvetica", 10),
                 anchor="n"  # Anchor the top of the text to y_position
             )
-    
+        
+        _, edges, _ = camera.capture(width=600, part_number=part, show_or_not=False, from_json=True)
+        
+        app.update_image(edges)
+        
     def update_indicators(self, vector):
         if len(vector) == 6:
             for r in range(len(vector)):
@@ -94,7 +101,19 @@ class Gui:
         self.sliders_window.configure(bg="gray20")
         
         self.sliders = {}
-        self.default_params = [60,55,70,255,255,255,3,2]
+        
+        with open("slider_params_BottomCasing.json", "r") as file:
+            self.default0 = json.load(file)
+            
+        
+        self.default_params = [self.default0["H low"], 
+                               self.default0["S low"],
+                               self.default0["V low"],
+                               self.default0["H up"],
+                               self.default0["S up"],
+                               self.default0["V up"],
+                               self.default0["Erosion"],
+                               self.default0["Dilation"]]
         self.maximal_params = [255,255,255,255,255,255,20,20]
         self.slider_names = ["H low", "S low", "V low", "H up", "S up", "V up", "Erosion", "Dilation"]
         
@@ -153,7 +172,6 @@ class Gui:
         self.update_calib_feed()
     
     def update_calib_feed(self):
-        #camera.update_params()
         if self.sliders_window.winfo_exists():
             params = [slider.get() for slider in self.sliders]
             _, edges, _ = camera.capture(width=600, part_number=self.text_box_content_number, show_or_not=False, from_json=False, params=params)
@@ -161,8 +179,6 @@ class Gui:
             imgtk = ImageTk.PhotoImage(image=img)
             self.feed_calib_area.imgtk = imgtk
             self.feed_calib_area.config(image=imgtk)
-
-            #self.window.after(100, self.save_params)
             
             self.window.after(100, self.update_calib_feed)  # repeat after 100 ms
     
@@ -184,6 +200,27 @@ class Gui:
 
         self.text_box.insert("1.0", self.text_box_content[self.text_box_content_number], "center")
         self.text_box.config(state="disabled")
+        
+        self.data = [None]*3
+        with open("slider_params_BottomCasing.json", "r") as file:
+            self.data[0] = json.load(file)
+            
+        with open("slider_params_IntegratedCircuit.json", "r") as file:
+            self.data[1] = json.load(file)
+        
+        with open("slider_params_TopCover.json", "r") as file:
+            self.data[2] = json.load(file)
+            
+        data_from_json = [self.data[self.text_box_content_number]["H low"], 
+                          self.data[self.text_box_content_number]["S low"],
+                          self.data[self.text_box_content_number]["V low"],
+                          self.data[self.text_box_content_number]["H up"],
+                          self.data[self.text_box_content_number]["S up"],
+                          self.data[self.text_box_content_number]["V up"],
+                          self.data[self.text_box_content_number]["Erosion"],
+                          self.data[self.text_box_content_number]["Dilation"]]
+        for slider in range(len(self.sliders)):
+            self.sliders[slider].set(data_from_json[slider])
 
     def update_image(self, frame):
         frame_resized = cv2.resize(frame, (640, 480))
@@ -192,26 +229,23 @@ class Gui:
         self.feed_area.imgtk = imgtk
         self.feed_area.config(image=imgtk)
 
+        self.window.after(100, self.update_image)
 
 
     def quit(self):
         self.window.destroy()
         
 
-# Run the app
-root = tk.Tk()
-app = Gui(root)
 
-# Optional: simulate image updates
-import numpy as np
-def simulate_frame():
-    dummy = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-    app.update_image(dummy)
-    root.after(100, simulate_frame)
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = Gui(root)
 
+    # Load initial image
+    _, edges, _ = camera.capture(width=600, part_number=0, show_or_not=False, from_json=True)
+    app.update_image(edges)
 
+    # Optional: initial indicator state
+    app.update_indicators([0, 1, 0, 1, 1, 0])
 
-app.update_indicators([0,1,0,1,1,0])
-
-simulate_frame()
-root.mainloop()
+    root.mainloop()
