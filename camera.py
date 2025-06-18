@@ -88,19 +88,22 @@ class Camera:
         ])
 
         self.update_params()
-
+        
+        self.prev_box_sorted = None
+        self.last_coordinates = None
+        self.no_coordinates = 0
 
     def update_params(self):
         # Load JSON data from file
         self.data_json = [None]*3
         with open("slider_params_TopCover.json", "r") as file:
-            self.data_json[0] = json.load(file)
+            self.data_json[2] = json.load(file)
 
         with open("slider_params_IntegratedCircuit.json", "r") as file:
             self.data_json[1] = json.load(file)
 
         with open("slider_params_BottomCasing.json", "r") as file:
-            self.data_json[2] = json.load(file)
+            self.data_json[0] = json.load(file)
         print("Params updated")
 
     def connect(self, camera_id, width, height) -> None:
@@ -180,36 +183,38 @@ class Camera:
             gray_gray = cv.cvtColor(gray_region, cv.COLOR_BGR2GRAY)
 
 
-            kernel = cv.getStructuringElement(cv.MORPH_RECT, (11, 11))
+            kernel = cv.getStructuringElement(cv.MORPH_RECT, (5, 5))
 
             # Apply Erosion
             eroded = cv.erode(gray_gray, kernel, iterations=ero)
             
             # Apply Dilation
             dilated = cv.dilate(eroded, kernel, iterations=dil)
-
             _, thresh = cv.threshold(dilated, 1, 255, cv.THRESH_BINARY)
-
             edges = cv.Canny(thresh, 150, 200)
-
             contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+           
+           
+            #Filter out unwanted contours
+            contours = [cnt for cnt in contours if cv.contourArea(cnt) > 3000]
 
-            # Show frames
-            if show_or_not:
-                cv.imshow('Edges', edges)
-                cv.imshow('Edges', gray_gray)
-                cv.waitKey(1)
             
             
-            return contours, edges, thresh
+            return contours, edges, thresh, frame, gray_gray    
         
 
 
     def calculate_coords(self, contours, frame):
         if not contours:
-            cv.imshow('Frame', frame)
-            cv.waitKey(1)
-            return np.array([0, 0, 0]), 0
+            if self.last_coordinates is not None and self.no_coordinates < 100:
+                coordinates = self.last_coordinates
+                self.no_coordinates = self.no_coordinates + 1
+            else:
+                coordinates = np.array([0,0,0])
+            return coordinates, 0, frame
+        
+        
+        self.no_coordinates = 0
 
         contour = max(contours, key=cv.contourArea)
         rect = cv.minAreaRect(contour)
@@ -218,9 +223,10 @@ class Camera:
         box = cv.boxPoints(rect)
         box = box.astype(int)
         box_sorted = self.sort_points(box, 4)
-
-        # Optionally: label the points
-        for i, point in enumerate(box_sorted):
+        
+        box_sorted_smoothed = box_sorted
+        
+        for i, point in enumerate(box_sorted_smoothed):
             x, y = point
             cv.circle(frame, (x, y), 5, (0, 255, 255), -1)
             cv.putText(frame, f"{i}", (x + 5, y - 5), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv.LINE_AA)
@@ -235,8 +241,8 @@ class Camera:
 
         # 3D reconstruction
         K_inv = np.linalg.inv(self.camera_matrix)
-        P1 = np.array([box_sorted[0][0], box_sorted[0][1], 1])
-        P2 = np.array([box_sorted[1][0], box_sorted[1][1], 1])
+        P1 = np.array([box_sorted_smoothed[2][0], box_sorted_smoothed[2][1], 1])
+        P2 = np.array([box_sorted_smoothed[3][0], box_sorted_smoothed[3][1], 1])
 
         ray1 = K_inv @ P1
         ray2 = K_inv @ P2
@@ -249,7 +255,7 @@ class Camera:
         middle_3d_cam = self.R_cam2gripper @ middle_3d_cam
 
         pt_3d_robot = self.t_cam2gripper.T - middle_3d_cam
-        pt_3d_robot[0][0] += 0.04
+        pt_3d_robot[0][0] -= 0.04
 
         # Drawing
         h, w = frame.shape[:2]
@@ -259,10 +265,14 @@ class Camera:
         cv.putText(frame, 'X', (50, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
         cv.circle(frame, (w // 2, h // 2), 50, (255, 255, 255), 2)
 
-        cv.imshow('Frame', frame)
+        #cv.imshow('Frame', frame)
 
         area = rect_height * rect_width
-        return pt_3d_robot[0], area
+        
+        coordinates = pt_3d_robot[0]
+        last_coordinates = coordinates
+        
+        return coordinates, area, frame
 
             
 
@@ -290,6 +300,11 @@ class Camera:
         else:
             print("Invalid number of points")
             return None
+        
+    def capture_and_get_coords(self, part_number):
+        contours, edges, thresh, frame, gray_gray = self.capture(width=600, part_number=part_number, show_or_not=False, from_json=True, params=0)
+        coords, area, _ = self.calculate_coords(contours=contours, frame=frame)
+        return coords, area
 
     def initSlider(self):
         cv.namedWindow("Camera params",cv.WINDOW_NORMAL)

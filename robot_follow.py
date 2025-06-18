@@ -5,20 +5,17 @@ import time
 import logging
 import ur
 from urData import URData
-import camera
 import gripper
 
 
 class robotFollow:
-    def __init__(self):
-        self.camera = camera.Camera()
-        self.camera.connect(1, 1280, 720)
+    def __init__(self, camera_instance):
+        self.camera = camera_instance
         self.receiver = URData()
-        self.camera.initSlider()
         self.HOME = [-0.1, 0.766, 0.1, 0, 3.1415, 0]
 
         self.max_X = 0.1
-        self.min_X = -0.2
+        self.min_X = -0.5
         self.max_Y = 0.9
         self.min_Y = 0.7
         self.max_Z = 0.2
@@ -34,62 +31,50 @@ class robotFollow:
 
         return np.array(result)
 
-    def move_to(self, part):
-        pose_from = self.receiver.get_pose()
-        camera_pose, area = self.camera.capture(600, part)
+    def move_to(self, part_number):
+        pose_from = self.receiver.get_pose()  # Current robot pose (XYZ + orientation)
+        camera_pose, area = self.camera.capture_and_get_coords(part_number)  # Detected part coords (XYZ)
 
+        # Handle case where camera couldn't detect part
+        if np.all(camera_pose == 0):
+            return [0, 0, 0, 0, 0, 0]
+
+        # Target pose: use current X/Y from camera, and a fixed Z (gripper height)
         pose_to = pose_from[:3] - camera_pose[:3]
-        pose_to[2] = self.min_Z
+        pose_to[2] = self.min_Z  # Set a fixed gripper Z height for grabbing
 
-        
-        distance = pose_to - pose_from[:3]
-        distance = np.linalg.norm(distance)
-        max_speed = 1
-        min_speed = 0.01
-        k = 25
-        # speed = min(max_speed, max(min_speed, k * distance))
-        # if speed < 0.01:
-        #     speed = 0
-        print(distance)
-        if distance < 0.002:
-            # Smooth deceleration near target
-            scale = distance * 1  # 1 → 0
-            
-            speed = min(max_speed, max(min_speed, k * distance))
-            #speed = max(min_speed, max_speed * (scale ** 2))  # quadratic decay
-            #print("Scale - ", scale, "Speed - ", speed)
-            if distance < 0.001:
-                speed = 0
-                #print("Speed")
-        else:
-            speed = max_speed
-
-        #Calculate direction and velocity
+        # Compute motion vector
         direction = pose_to - pose_from[:3]
-        #direction[:2] /= np.linalg.norm(direction[:2])  # normalize position part
+        distance = np.linalg.norm(direction)
 
-        velocity = np.round(direction * speed,5)
-        velocity = velocity.astype(float).tolist()
-        # print("Vel: ",velocity)
-        # print("Pose from", pose_from[2])
-        if pose_from[2] <= -0.095: velocity[2] = 0
-        velocity_vector = [velocity[0], -velocity[1], velocity[2], 0, 0, 0]
-        #print(velocity_vector)
+        # Avoid division by zero
+        if distance < 1e-6:
+            return [0, 0, 0, 0, 0, 0]
+
+        # Adaptive speed based on distance
+        max_speed = 0.5
+        min_speed = 0.01
+        k = 5
+        speed = np.clip(k * distance, min_speed, max_speed)
+
+        # Final velocity vector (XYZ only)
+        velocity = direction / distance * speed
         
-        if camera_pose.all() != 0:
-            #print("Vel vector: ",velocity_vector)
-            escape_vector = self.is_within_bounds(pose_from[:3])
-            #print("Esc vector: ",escape_vector)
-            if not escape_vector.any() == 0:
-                nvv = escape_vector.T * np.array([0.1,0.1,0.1])
-                nvv = nvv.astype(float).tolist()
-                new_velocity_vector = [nvv[0], nvv[1], nvv[2], 0, 0, 0]
-                #print("NVV: ",new_velocity_vector)
-                return new_velocity_vector
-            else:
-                return velocity_vector
-        else:
-            return [0,0,0,0,0,0]
+        velocity = velocity.astype(float).tolist()
+        # Avoid moving too far down (prevent crashing into table)
+        if pose_from[2] <= -0.095:
+            velocity[2] = 0
+
+        velocity_vector = [-velocity[0], velocity[1], velocity[2], 0, 0, 0]  # Adjust sign if necessary
+
+        # Safety check: avoid going out of bounds
+        escape_vector = self.is_within_bounds(pose_from[:3])
+        if not np.all(escape_vector == 0):
+            adjusted_escape = (escape_vector.T * np.array([0.1, 0.1, 0.1]))
+            adjusted_escape = adjusted_escape.astype(float).tolist()
+            return [adjusted_escape[0], adjusted_escape[1], adjusted_escape[2], 0, 0, 0]
+
+        return velocity_vector
 
 
 

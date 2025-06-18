@@ -2,19 +2,20 @@ import tkinter as tk
 from tkinter import Label
 import cv2 as cv
 from PIL import Image, ImageTk
+import camera
 import json
 import conveyor_belt
 import threading
 import time
 
-# camera = camera.Camera()
-# camera.connect(1, 1280, 720)
+camera = camera.Camera()
+camera.connect(1, 1280, 720)
 
 conveyor = conveyor_belt.conveyorBelt()
 
 
 class Gui:
-    def __init__(self, window, camera_instance):
+    def __init__(self, window):
         self.window = window
         self.window.title("Camera GUI")
         self.window.geometry("700x700")
@@ -26,7 +27,6 @@ class Gui:
         self.is_stopping = False
         self.is_starting = False
 
-        self.camera = camera_instance
         
     def main_window(self):
         
@@ -184,15 +184,24 @@ class Gui:
         self.update_calib_feed()
     
     def update_calib_feed(self):
-        if self.sliders_window.winfo_exists():
+        if not self.sliders_window.winfo_exists():
+            return
+
+        def worker():
             params = [slider.get() for slider in self.sliders]
-            _, edges, dilated, _, _ = self.camera.capture(width=600, part_number=self.text_box_content_number, show_or_not=False, from_json=False, params=params)
-            img = Image.fromarray(dilated)
+            _, edges, thresh, _, _ = camera.capture(width=600, part_number=self.text_box_content_number, show_or_not=False, from_json=False, params=params)
+            img = Image.fromarray(thresh)
             imgtk = ImageTk.PhotoImage(image=img)
-            self.feed_calib_area.imgtk = imgtk
-            self.feed_calib_area.config(image=imgtk)
-            
-            self.window.after(30, self.update_calib_feed)  # repeat after 100 ms
+
+            # update UI on the main thread
+            self.feed_calib_area.after(0, lambda: self.update_image(imgtk))
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.window.after(30, self.update_calib_feed)
+
+    def update_image(self, imgtk):
+        self.feed_calib_area.imgtk = imgtk
+        self.feed_calib_area.config(image=imgtk)
     
     def save_params(self):
         for i in range(len(self.sliders)):
@@ -200,7 +209,8 @@ class Gui:
             version = "_" + str(self.text_box_content[self.text_box_content_number])
             with open(f"slider_params{version}.json", "w") as f:
                 json.dump(params, f, indent=4)
-        self.camera.update_params()
+        
+        print("Saved for part number - ", self.text_box_content_number)
         
 
     def update_part(self, direction):
