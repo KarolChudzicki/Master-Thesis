@@ -9,12 +9,12 @@ import camera
 import gripper
 import conveyor_belt
 import robot_follow
-import tkinter as tk
 from gui import Gui
+import threading
+import tkinter as tk
 
-root = tk.Tk()
-app = Gui(root)
-root.mainloop()
+camera = camera.Camera()
+camera.connect(1, 1280, 720)
 
 HOME = [-0.1, 0.766, 0.1, 0, 3.1415, 0]
 
@@ -27,7 +27,7 @@ min_Z = -0.1
 
 #URRobot = ur.URRobot()
 gripper = gripper.Gripper()
-robotFollow = robot_follow.robotFollow()
+#robotFollow = robot_follow.robotFollow()
 
 #URRobot.movel(HOME, 0.01, 0.05, 5)
 
@@ -35,22 +35,26 @@ robotFollow = robot_follow.robotFollow()
 gripper.activate()
 gripper.connect()
 
+def image_show():
+    while True:
+        _, edges, thresh = camera.capture(width=600, part_number=0, show_or_not=False, from_json=True, params=0)
+        cv.imshow("Main view", thresh)
+        cv.waitKey(1)
+        if cv.waitKey(1) & 0xFF == ord('q'):
+            break
+    
+def robot_main_loop():
+    print("1")
+    
 
-while True:
-    cv.waitKey(1)
-    # URRobot.speedl(robotFollow.move_to(0), 0.05, 3)
-    # print(robotFollow.move_to(0))
+root = tk.Tk()
+app = Gui(root)
+threading.Thread(target=image_show, daemon=True).start()
+threading.Thread(target=robot_main_loop, daemon=True).start()
 
+# Optional: initial indicator state
+app.update_indicators([0, 1, 0, 1, 1, 0])
 
-    # key = cv.waitKey(1) & 0xFF
-    # if key == ord('c') and not toggle:
-    #     gripper.open_close(POSITION_REQUEST=0, SPEED=50, FORCE=1)
-    # elif key == ord('o') and not toggle:
-    #     gripper.open_close(POSITION_REQUEST=85, SPEED=50, FORCE=1)
-    # else:
-    #     toggle = False
-
-
-
+root.mainloop()
 
 

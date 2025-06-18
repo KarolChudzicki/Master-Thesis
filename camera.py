@@ -200,6 +200,7 @@ class Camera:
                 cv.imshow('Edges', gray_gray)
                 cv.waitKey(1)
             
+            
             return contours, edges, thresh
         
 

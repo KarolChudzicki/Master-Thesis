@@ -1,47 +1,62 @@
 import tkinter as tk
 from tkinter import Label
-import cv2
+import cv2 as cv
 from PIL import Image, ImageTk
 import camera
 import json
-
+import conveyor_belt
+import threading
+import time
 
 camera = camera.Camera()
 camera.connect(1, 1280, 720)
+
+conveyor = conveyor_belt.conveyorBelt()
 
 
 class Gui:
     def __init__(self, window):
         self.window = window
         self.window.title("Camera GUI")
-        self.window.geometry("1200x500")
+        self.window.geometry("700x700")
         self.window.resizable(False, False)
         self.window.configure(bg="white")  # Helps see layout during testing
         
         self.main_window()
+        
+        self.is_stopping = False
+        self.is_starting = False
 
         
-    def main_window(self, part):
+    def main_window(self):
         
-        # Area for camera feed
-        self.feed_area = Label(self.window, width=640, height=480, bg="black")
-        self.feed_area.place(x=10, y=10)
+        # # Area for camera feed
+        # self.feed_area = Label(self.window, width=1000, height=700, bg="black")
+        # self.feed_area.place(x=10, y=10)
 
         # Calibrate button (opens a window with sliders for parameter setup)
         self.calibration_button = tk.Button(self.window, text="Calibrate", command=self.sliders_popup, height=2, width=60)
-        self.calibration_button.place(x=700, y=10)
+        self.calibration_button.pack(side='top', padx=10, pady=10)
         
         # Start button - starts the system
         self.start_button = tk.Button(self.window, text="Start", command=self.quit, height=2, width=60)
-        self.start_button.place(x=700, y=60)
+        self.start_button.pack(side='top', padx=10, pady=10)
         
         # Stop button - halts the program
         self.stop_button = tk.Button(self.window, text="Stop", command=self.quit, height=2, width=60)
-        self.stop_button.place(x=700, y=110)
+        self.stop_button.pack(side='top', padx=10, pady=10)
 
         # Home button - homes the robot
         self.home_button = tk.Button(self.window, text="Home", command=self.quit, height=2, width=60)
-        self.home_button.place(x=700, y=160)
+        self.home_button.pack(side='top', padx=10, pady=10)
+        
+        # Start conveyor
+        self.start_conv_button = tk.Button(self.window, text="Start conveyor", command=self.start_conveyor, height=2, width=60)
+        self.start_conv_button.pack(side='top', padx=10, pady=10)
+        
+        # Stop conveyor
+        self.stop_conv_button = tk.Button(self.window, text="Stop conveyor", command=self.stop_conveyor, height=2, width=60)
+        self.stop_conv_button.pack(side='top', padx=10, pady=10)
         
         self.rect_size = 90
         self.rect_padding = 26
@@ -49,7 +64,7 @@ class Gui:
         
         # Storage station indicators
         self.indicator_canvas = tk.Canvas(self.window, width=380, height=250, bg="gray", relief="flat", bd=0, highlightthickness=0)
-        self.indicator_canvas.place(x=725, y=200) 
+        self.indicator_canvas.pack(side='top', padx=10, pady=10)
         self.indicator_canvas.create_rectangle(0,0, 430, 25, fill="white", outline="")
         
         for i in range(3):
@@ -81,9 +96,6 @@ class Gui:
                 anchor="n"  # Anchor the top of the text to y_position
             )
         
-        _, edges, _ = camera.capture(width=600, part_number=part, show_or_not=False, from_json=True)
-        
-        app.update_image(edges)
         
     def update_indicators(self, vector):
         if len(vector) == 6:
@@ -223,29 +235,49 @@ class Gui:
             self.sliders[slider].set(data_from_json[slider])
 
     def update_image(self, frame):
-        frame_resized = cv2.resize(frame, (640, 480))
+        frame_resized = cv.resize(frame, (640, 480))
         img = Image.fromarray(frame_resized)
         imgtk = ImageTk.PhotoImage(image=img)
         self.feed_area.imgtk = imgtk
         self.feed_area.config(image=imgtk)
 
-        self.window.after(100, self.update_image)
-
+    def update_image_loop(self):
+        _,edges, _ = camera.capture(width=600, part_number=0, show_or_not=False, from_json=True, params=None)
+        self.update_image(edges)
+        self.window.after(100, self.update_image_loop)
 
     def quit(self):
+        self.stop_conveyor()
         self.window.destroy()
         
+    def start_conveyor(self):
+        threading.Thread(target=self._start_conveyor_worker, daemon=True).start()
+        
+    def _start_conveyor_worker(self):
+        try:
+            conveyor.setDirection(1)
+        except Exception as e:
+            print(f"Error starting conveyor: {e}")
+            
+        try:
+            conveyor.setSpeed(101)
+        except Exception as e:
+            print(f"Error starting conveyor: {e}")
+            
+        try:
+            conveyor.start()
+        except Exception as e:
+            print(f"Error starting conveyor: {e}")
+        
+    
+    def stop_conveyor(self):
+        threading.Thread(target=self._stop_conveyor_worker, daemon=True).start()
+        
+    def _stop_conveyor_worker(self):
+        try:
+            conveyor.stop()
+        except Exception as e:
+            print(f"Error starting conveyor: {e}")    
 
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = Gui(root)
 
-    # Load initial image
-    _, edges, _ = camera.capture(width=600, part_number=0, show_or_not=False, from_json=True)
-    app.update_image(edges)
-
-    # Optional: initial indicator state
-    app.update_indicators([0, 1, 0, 1, 1, 0])
-
-    root.mainloop()

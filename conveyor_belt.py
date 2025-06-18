@@ -21,16 +21,25 @@ class conveyorBelt:
         else:
             print("Failed to connect to the inverter")
             self.client.close()
+            
+        # result = self.client.read_holding_registers(address=0x0200, count=1, slave=1)
+        # if result.isError():
+        #     print("Read failed:", result)
+        # else:
+        #     print("Register value:", result.registers)
     
     # ==================== Function for starting ====================
     def start(self):
         self.client.write_register(address=main_control_bit_address,value=0x0001)
         print("Conveyor started")
+
+
     
     # ==================== Function for stoping ====================
     def stop(self):
-        self.client.write_register(address=main_control_bit_address, value=(operation_run_or_stop | 0x0000))
+        self.client.write_register(address=main_control_bit_address, value=0x0000)
         print("Conveyor stopped")
+
     
     # ==================== Function for direction control ====================
     def setDirection(self, direction):
@@ -50,6 +59,7 @@ class conveyorBelt:
             print(f"Speed set to {speed}")
         else:
             print("Incorrect speed value")
+
 
 
 
