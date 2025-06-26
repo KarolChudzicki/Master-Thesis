@@ -20,6 +20,46 @@ class robotFollow:
         self.min_Y = 0.7
         self.max_Z = 0.2
         self.min_Z = -0.1
+        self.coords_array = []
+        self.time_stamps = []
+        
+    def rough_estimation(self, part_number):
+        parts_area = [37000, 46000, 0]
+        
+        
+        coords, area, _ = self.camera.capture_and_get_coords(part_number)  # Detected part coords (XYZ)
+        coords = coords[:2]
+        
+        if part_number == 0 and area > parts_area[0]:
+            self.coords_array.append(coords)
+            self.time_stamps.append(time.time())
+        if part_number == 1 and area > parts_area[1]:
+            self.coords_array.append(coords)
+            self.time_stamps.append(time.time())
+        if part_number == 2 and area > parts_area[2]:
+            self.coords_array.append(coords)
+            self.time_stamps.append(time.time())
+        
+        
+        
+        if len(self.coords_array) > 30:
+            velocities = []
+            for i in range(1, len(self.coords_array)):
+                delta_pos = self.coords_array[i] - self.coords_array[i - 1]
+                delta_time = self.time_stamps[i] - self.time_stamps[i - 1]
+                if delta_time > 0:
+                    velocity = delta_pos / delta_time  # [vx, vy]
+                    velocities.append(velocity)
+            
+            avg_velocity = np.mean(velocities, axis=0)
+            avg_velocity_x = round(float(avg_velocity[0]),5)
+            
+            # Return average x velocity
+            return avg_velocity_x, self.coords_array[-1]
+            
+
+        
+
 
     def is_within_bounds(self, position):
         x, y, z = position
@@ -46,15 +86,16 @@ class robotFollow:
         # Compute motion vector
         direction = pose_to - pose_from[:3]
         distance = np.linalg.norm(direction)
+        print(distance)
 
-        # Avoid division by zero
-        if distance < 1e-6:
-            return [0, 0, 0, 0, 0, 0]
+        # # Avoid division by zero
+        # if distance < 1e-6:
+        #     return [0, 0, 0, 0, 0, 0]
 
         # Adaptive speed based on distance
-        max_speed = 0.5
+        max_speed = 0.3
         min_speed = 0.01
-        k = 5
+        k = 3
         speed = np.clip(k * distance, min_speed, max_speed)
 
         # Final velocity vector (XYZ only)

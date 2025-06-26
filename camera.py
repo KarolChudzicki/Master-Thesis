@@ -18,8 +18,6 @@ class Camera:
         with open('calib_param.txt', 'r') as f:
             lines = f.readlines()
 
-
-
         cleaned = re.sub(r'[\[\]]', '', lines[1])
         cleaned = re.sub(r'\s+', ' ', cleaned)
         row1 = np.fromstring(cleaned.strip(), sep=' ')
@@ -206,7 +204,7 @@ class Camera:
 
     def calculate_coords(self, contours, frame):
         if not contours:
-            if self.last_coordinates is not None and self.no_coordinates < 100:
+            if self.last_coordinates is not None and self.no_coordinates < 10:
                 coordinates = self.last_coordinates
                 self.no_coordinates = self.no_coordinates + 1
             else:
@@ -270,7 +268,7 @@ class Camera:
         area = rect_height * rect_width
         
         coordinates = pt_3d_robot[0]
-        last_coordinates = coordinates
+        self.last_coordinates = coordinates
         
         return coordinates, area, frame
 
@@ -303,8 +301,8 @@ class Camera:
         
     def capture_and_get_coords(self, part_number):
         contours, edges, thresh, frame, gray_gray = self.capture(width=600, part_number=part_number, show_or_not=False, from_json=True, params=0)
-        coords, area, _ = self.calculate_coords(contours=contours, frame=frame)
-        return coords, area
+        coords, area, frame = self.calculate_coords(contours=contours, frame=frame)
+        return coords, area, frame
 
     def initSlider(self):
         cv.namedWindow("Camera params",cv.WINDOW_NORMAL)
