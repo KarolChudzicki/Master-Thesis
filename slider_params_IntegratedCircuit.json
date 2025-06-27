@@ -1,10 +1,10 @@
 {
-    "H low": 95,
-    "S low": 53,
-    "V low": 62,
-    "H up": 255,
+    "H low": 40,
+    "S low": 42,
+    "V low": 48,
+    "H up": 80,
     "S up": 255,
     "V up": 255,
-    "Erosion": 3,
-    "Dilation": 2
+    "Erosion": 4,
+    "Dilation": 4
 }

@@ -90,6 +90,29 @@ class Camera:
         self.prev_box_sorted = None
         self.last_coordinates = None
         self.no_coordinates = 0
+        
+        
+        # Sizes of objects for solve PNP
+        self.object_points1 = np.array([
+            [-0.03, -0.04, 0], # Bottom left
+            [-0.03,  0.04, 0], # Bottom right
+            [ 0.03,  0.04, 0], # Top right
+            [ 0.03,  -0.04, 0] # Top left
+        ])
+        
+        self.object_points2 = np.array([
+            [-0.023, -0.033, 0], # Bottom left
+            [-0.023,  0.033, 0], # Bottom right
+            [ 0.023,  0.033, 0], # Top right
+            [ 0.023, -0.033, 0] # Top left
+        ])
+        
+        self.object_points1 = np.array([
+            [-0.03, -0.04, 0], # Bottom left
+            [-0.03,  0.04, 0], # Bottom right
+            [ 0.03,  0.04, 0], # Top right
+            [ 0.03,  -0.04, 0] # Top left
+        ])
 
     def update_params(self):
         # Load JSON data from file
@@ -202,17 +225,18 @@ class Camera:
         
 
 
-    def calculate_coords(self, contours, frame):
+    def calculate_coords_edge_center(self, contours, frame):
         if not contours:
-            if self.last_coordinates is not None and self.no_coordinates < 10:
-                coordinates = self.last_coordinates
-                self.no_coordinates = self.no_coordinates + 1
-            else:
-                coordinates = np.array([0,0,0])
-            return coordinates, 0, frame
+            # if self.last_coordinates is not None and self.no_coordinates < 10:
+            #     coordinates = self.last_coordinates
+            #     self.no_coordinates = self.no_coordinates + 1
+            # else:
+            #     coordinates = np.array([0,0,0])
+            coordinates = np.array([0,0,0])
+            return coordinates, 0, frame, 0
         
         
-        self.no_coordinates = 0
+        # self.no_coordinates = 0
 
         contour = max(contours, key=cv.contourArea)
         rect = cv.minAreaRect(contour)
@@ -268,12 +292,89 @@ class Camera:
         area = rect_height * rect_width
         
         coordinates = pt_3d_robot[0]
-        self.last_coordinates = coordinates
+        #self.last_coordinates = coordinates
         
-        return coordinates, area, frame
+        return coordinates, area, frame, angle_rect
 
-            
+    def calculate_coords_rect_center(self, contours, frame):
+        if not contours:
+        #     if self.last_coordinates is not None and self.no_coordinates < 10:
+        #         coordinates = self.last_coordinates
+        #         self.no_coordinates = self.no_coordinates + 1
+        #     else:
+        #         coordinates = np.array([0,0,0])
+            coordinates = np.array([0,0,0])
+            return coordinates, 0, frame, 0
+        
+        
+        self.no_coordinates = 0
 
+        contour = max(contours, key=cv.contourArea)
+        rect = cv.minAreaRect(contour)
+        center_rect, (rect_width, rect_height), angle_rect = rect
+
+        box = cv.boxPoints(rect)
+        box = box.astype(int)
+        box_sorted = self.sort_points(box, 4)
+        
+        box_sorted_smoothed = box_sorted
+        
+        for i, point in enumerate(box_sorted_smoothed):
+            x, y = point
+            cv.circle(frame, (x, y), 5, (0, 255, 255), -1)
+            cv.putText(frame, f"{i}", (x + 5, y - 5), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv.LINE_AA)
+
+        center_rect = [int(min(center_rect)), int(max(center_rect))]
+
+        if rect_width < rect_height:
+            rect_width, rect_height = rect_height, rect_width
+            angle_rect -= 90
+
+        image_points = np.array(box_sorted_smoothed, dtype=np.float32)
+
+        # 3D reconstruction
+        success, rvec, tvec = cv.solvePnP(
+            self.object_points1,
+            image_points,
+            self.camera_matrix,
+            self.distortion_coeffs  # Use np.zeros((5, 1)) if unknown
+            #flags=cv.SOLVEPNP_P3P
+        )
+        
+        if success:
+            # tvec is the center of the rectangle in camera coordinates (X, Y, Z)
+            center_3d = tvec.flatten()  # Convert to 1D array: [X, Y, Z]
+            #print("Center in 3D:", center_3d)
+
+            # You can also transform to robot/world coordinates if needed
+            center_3d_robot = self.R_cam2gripper @ center_3d.reshape(3, 1)
+            center_3d_robot = center_3d_robot - self.t_cam2gripper
+            center_3d_robot = center_3d_robot.flatten()
+            #print("Center in robot coordinates:", center_3d_robot)
+            coordinates = center_3d_robot
+        else:
+            coordinates = None
+
+
+        # Drawing
+        h, w = frame.shape[:2]
+        cv.arrowedLine(frame, (10, 10), (10, 60), (255, 255, 0), 2)
+        cv.putText(frame, 'Y', (15, 60), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
+        cv.arrowedLine(frame, (10, 10), (60, 10), (255, 0, 255), 2)
+        cv.putText(frame, 'X', (50, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+        cv.circle(frame, (w // 2, h // 2), 50, (255, 255, 255), 2)
+
+        #cv.imshow('Frame', frame)
+
+        area = rect_height * rect_width
+        
+        
+        
+        #self.last_coordinates = coordinates
+        coordinates = center_3d_robot.tolist()
+        
+        return coordinates, area, frame, angle_rect        
+    
 
     def sort_points(self, points, number):
         
@@ -299,10 +400,50 @@ class Camera:
             print("Invalid number of points")
             return None
         
-    def capture_and_get_coords(self, part_number):
+    def capture_and_get_coords_edge(self, part_number):
         contours, edges, thresh, frame, gray_gray = self.capture(width=600, part_number=part_number, show_or_not=False, from_json=True, params=0)
-        coords, area, frame = self.calculate_coords(contours=contours, frame=frame)
-        return coords, area, frame
+        coords, area, frame, angle = self.calculate_coords_edge_center(contours=contours, frame=frame)
+        return coords, area, frame, angle
+    
+    def capture_and_get_coords_center(self, part_number):
+        contours, edges, thresh, frame, gray_gray = self.capture(width=600, part_number=part_number, show_or_not=False, from_json=True, params=0)
+        coords, area, frame, angle = self.calculate_coords_rect_center(contours=contours, frame=frame)
+        return coords, area, frame, angle
+
+    def identifyingPart(self):
+        _, area, _, _ = self.capture_and_get_coords(0)
+        part_number = 0
+        while area < 24000:
+            part_number += 1
+            if part_number >= 3:
+                part_number = 0
+            _, area, _, _ = self.capture_and_get_coords(part_number)
+        
+        area_sum = 0
+        area_buffer = 0
+        area_captures = 10
+        while area_buffer < area_captures:
+            _, area, _, _ = self.capture_and_get_coords(part_number)
+            area_sum += area
+            area_buffer += 1
+        
+        area = area_sum / area_captures
+        print(area)
+        
+        if area > 22000 and area <= 32000:
+            part = 1
+        elif area > 32000 and area <= 44000:
+            part = 0
+        elif area > 44000 and area <= 55000:
+            part = 2
+        else:
+            part = None
+        
+        
+            
+        return part
+            
+            
 
     def initSlider(self):
         cv.namedWindow("Camera params",cv.WINDOW_NORMAL)

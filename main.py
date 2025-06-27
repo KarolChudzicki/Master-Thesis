@@ -38,19 +38,33 @@ gripper.connect()
 
 def image_show():
     while True:
-        coords, area, frame = camera.capture_and_get_coords(0)
+        coords, area, frame, angle = camera.capture_and_get_coords_edge(0)
         cv.imshow("Frame", frame)
-        cv.waitKey(1)
+        #cv.waitKey(1)
+        #print(area, angle)
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
     
 def robot_main_loop():
+    # Detecting the part and identifying it
     while True:
-        avg_velocity_x, last_coords = robotFollow.rough_estimation(part_number=0)
-        
-        #URRobot.speedl(velocity_vector, 0.2, 5)
-        if cv.waitKey(1) & 0xFF == ord('q'):
-            break
+        coords1, area, frame, angle = camera.capture_and_get_coords_center(0)
+        coords2, area, frame, angle = camera.capture_and_get_coords_edge(0)
+        print("Coords center = ",coords1)
+        print("Coords edge = ",coords2)
+        # part_number = None
+        # while part_number is None:
+        #     part_number = camera.identifyingPart()
+            
+        # print(part_number)
+
+        # while True:
+        #     avg_velocity_x, last_coords = robotFollow.rough_estimation(part_number)
+        #     if avg_velocity_x is not None:
+        #         break
+
+        # print(avg_velocity_x, last_coords)
+        # time.sleep(5)
     
 
 root = tk.Tk()

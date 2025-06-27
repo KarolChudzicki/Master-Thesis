@@ -24,27 +24,28 @@ class robotFollow:
         self.time_stamps = []
         
     def rough_estimation(self, part_number):
-        parts_area = [37000, 46000, 0]
+        parts_area = [37000, 24000, 46000]
         
         
-        coords, area, _ = self.camera.capture_and_get_coords(part_number)  # Detected part coords (XYZ)
+        
+        coords, area, _, angle = self.camera.capture_and_get_coords(part_number)  # Detected part coords (XYZ)
         coords = coords[:2]
         
         if part_number == 0 and area > parts_area[0]:
-            self.coords_array.append(coords)
+            self.coords_array.append(coords[0])
             self.time_stamps.append(time.time())
         if part_number == 1 and area > parts_area[1]:
-            self.coords_array.append(coords)
+            self.coords_array.append(coords[0])
             self.time_stamps.append(time.time())
         if part_number == 2 and area > parts_area[2]:
-            self.coords_array.append(coords)
+            self.coords_array.append(coords[0])
             self.time_stamps.append(time.time())
         
         
         
-        if len(self.coords_array) > 30:
+        if len(self.coords_array) >= 20:
             velocities = []
-            for i in range(1, len(self.coords_array)):
+            for i in range(5, len(self.coords_array)):
                 delta_pos = self.coords_array[i] - self.coords_array[i - 1]
                 delta_time = self.time_stamps[i] - self.time_stamps[i - 1]
                 if delta_time > 0:
@@ -52,11 +53,21 @@ class robotFollow:
                     velocities.append(velocity)
             
             avg_velocity = np.mean(velocities, axis=0)
-            avg_velocity_x = round(float(avg_velocity[0]),5)
+            avg_velocity_x = round(float(avg_velocity),5)
+            
+            test = (self.coords_array[5]-self.coords_array[-1])/(self.time_stamps[5]-self.time_stamps[-1])
+            print("Another average = ",test)
+            
+            last_coords = self.coords_array[-1]
+            self.coords_array = []
+            self.time_stamps = []
+            
+            
             
             # Return average x velocity
-            return avg_velocity_x, self.coords_array[-1]
-            
+            return avg_velocity_x, last_coords
+        
+        return None, None
 
         
 
@@ -88,9 +99,6 @@ class robotFollow:
         distance = np.linalg.norm(direction)
         print(distance)
 
-        # # Avoid division by zero
-        # if distance < 1e-6:
-        #     return [0, 0, 0, 0, 0, 0]
 
         # Adaptive speed based on distance
         max_speed = 0.3
