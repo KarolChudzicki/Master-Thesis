@@ -249,7 +249,7 @@ class Gui:
             print(f"Error starting conveyor: {e}")
             
         try:
-            conveyor.setSpeed(101)
+            conveyor.setSpeed(100)
         except Exception as e:
             print(f"Error starting conveyor: {e}")
             

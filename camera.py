@@ -253,7 +253,9 @@ class Camera:
             cv.circle(frame, (x, y), 5, (0, 255, 255), -1)
             cv.putText(frame, f"{i}", (x + 5, y - 5), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv.LINE_AA)
 
-        center_rect = [int(min(center_rect)), int(max(center_rect))]
+        center_rect = [int(max(center_rect)), int(min(center_rect))]
+        
+        cv.circle(frame, (center_rect[0], center_rect[1]), 5, (100, 100, 255), -1)
 
         if rect_width < rect_height:
             rect_width, rect_height = rect_height, rect_width
@@ -296,7 +298,7 @@ class Camera:
         
         return coordinates, area, frame, angle_rect
 
-    def calculate_coords_rect_center(self, contours, frame):
+    def calculate_coords_rect_center(self, contours, frame, part_number):
         if not contours:
         #     if self.last_coordinates is not None and self.no_coordinates < 10:
         #         coordinates = self.last_coordinates
@@ -324,7 +326,7 @@ class Camera:
             cv.circle(frame, (x, y), 5, (0, 255, 255), -1)
             cv.putText(frame, f"{i}", (x + 5, y - 5), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv.LINE_AA)
 
-        center_rect = [int(min(center_rect)), int(max(center_rect))]
+        center_rect = [int(max(center_rect)), int(min(center_rect))]
 
         if rect_width < rect_height:
             rect_width, rect_height = rect_height, rect_width
@@ -333,27 +335,35 @@ class Camera:
         image_points = np.array(box_sorted_smoothed, dtype=np.float32)
 
         # 3D reconstruction
-        success, rvec, tvec = cv.solvePnP(
-            self.object_points1,
-            image_points,
-            self.camera_matrix,
-            self.distortion_coeffs  # Use np.zeros((5, 1)) if unknown
-            #flags=cv.SOLVEPNP_P3P
-        )
-        
-        if success:
-            # tvec is the center of the rectangle in camera coordinates (X, Y, Z)
-            center_3d = tvec.flatten()  # Convert to 1D array: [X, Y, Z]
-            #print("Center in 3D:", center_3d)
-
-            # You can also transform to robot/world coordinates if needed
-            center_3d_robot = self.R_cam2gripper @ center_3d.reshape(3, 1)
-            center_3d_robot = center_3d_robot - self.t_cam2gripper
-            center_3d_robot = center_3d_robot.flatten()
-            #print("Center in robot coordinates:", center_3d_robot)
-            coordinates = center_3d_robot
+        if part_number == 0: known_Z = 0.3 - 0.003
+        elif part_number == 1: known_Z = 0.3 - 0.002
+        elif part_number == 2: known_Z = 0.3 - 0.040
         else:
-            coordinates = None
+            # Error
+            return None
+        
+        # Convert center to homogeneous coordinates
+        u, v = center_rect
+        
+        pixel_vector = np.array([u, v, 1.0], dtype=np.float32)
+
+        # Invert camera matrix to back-project
+        inv_K = np.linalg.inv(self.camera_matrix)
+        normalized_coords = inv_K @ pixel_vector
+
+        # Scale by known Z
+        X = normalized_coords[0] * known_Z
+        Y = normalized_coords[1] * known_Z
+        Z = known_Z
+
+        center_3d = np.array([X, Y, Z])
+
+        # Transform to robot coordinates
+        center_3d_robot = self.R_cam2gripper @ center_3d.reshape(3, 1)  
+        center_3d_robot = self.t_cam2gripper - center_3d_robot
+        center_3d_robot = center_3d_robot.flatten()
+
+        coordinates = np.round(center_3d_robot, 7).tolist()
 
 
         # Drawing
@@ -369,12 +379,31 @@ class Camera:
         area = rect_height * rect_width
         
         
-        
-        #self.last_coordinates = coordinates
         coordinates = center_3d_robot.tolist()
+        
+        
         
         return coordinates, area, frame, angle_rect        
     
+    def get_object_area(self, contours, part_number):
+        if not contours:
+            return 0, None
+        
+
+        contour = max(contours, key=cv.contourArea)
+        rect = cv.minAreaRect(contour)
+        center_rect, (rect_width, rect_height), angle_rect = rect
+
+        center_rect = [int(max(center_rect)), int(min(center_rect))]
+        
+        if rect_width < rect_height:
+            rect_width, rect_height = rect_height, rect_width
+            angle_rect -= 90
+
+
+        area = rect_height * rect_width
+
+        return area, angle_rect
 
     def sort_points(self, points, number):
         
@@ -407,41 +436,58 @@ class Camera:
     
     def capture_and_get_coords_center(self, part_number):
         contours, edges, thresh, frame, gray_gray = self.capture(width=600, part_number=part_number, show_or_not=False, from_json=True, params=0)
-        coords, area, frame, angle = self.calculate_coords_rect_center(contours=contours, frame=frame)
+        coords, area, frame, angle = self.calculate_coords_rect_center(contours=contours, frame=frame, part_number=part_number)
         return coords, area, frame, angle
 
+    def capture_and_get_object_area_and_angle(self, part_number):
+        contours, edges, thresh, frame, gray_gray = self.capture(width=600, part_number=part_number, show_or_not=False, from_json=True, params=0)
+        area, angle = self.get_object_area(contours=contours, part_number=part_number)
+        return area, angle
+
     def identifyingPart(self):
-        _, area, _, _ = self.capture_and_get_coords(0)
+        area, angle = self.capture_and_get_object_area_and_angle(0)
         part_number = 0
-        while area < 24000:
+        # Loop to check if something is in the image
+        while area < 20000:
             part_number += 1
             if part_number >= 3:
                 part_number = 0
-            _, area, _, _ = self.capture_and_get_coords(part_number)
+            area, angle = self.capture_and_get_object_area_and_angle(part_number)
         
-        area_sum = 0
-        area_buffer = 0
+        #print(part_number)
+        
+        area_array = []
+        angle_array = []
         area_captures = 10
-        while area_buffer < area_captures:
-            _, area, _, _ = self.capture_and_get_coords(part_number)
-            area_sum += area
-            area_buffer += 1
+        # Loop to double check the area
+        while len(area_array) < area_captures:
+            area, angle = self.capture_and_get_object_area_and_angle(part_number)
+            if area is not None:
+                area_array.append(area)
+            if angle is not None:
+                angle_array.append(angle)
         
-        area = area_sum / area_captures
-        print(area)
         
-        if area > 22000 and area <= 32000:
+        # Filter out too small values
+        max_area = max(area_array)
+        filtered_areas = [a for a in area_array if abs(a - max_area) <= 4000] 
+        
+        #print(angle_array)
+        angle = sum(angle_array) / len(angle_array)
+        
+        area = sum(filtered_areas) / len(filtered_areas)
+        
+        
+        if area > 22000 and area <= 34000:
             part = 1
-        elif area > 32000 and area <= 44000:
+        elif area > 34000 and area <= 48000:
             part = 0
-        elif area > 44000 and area <= 55000:
+        elif area > 48000 and area <= 65000:
             part = 2
         else:
             part = None
-        
-        
-            
-        return part
+                    
+        return part, angle
             
             
 
