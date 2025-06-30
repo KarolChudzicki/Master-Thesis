@@ -24,8 +24,12 @@ class URData:
         self.s.settimeout(0.1)
         self.lock = threading.Lock()
 
+        # Event to signal new pose arrival
+        self.pose_updated_event = threading.Event()
+
         self.thread = threading.Thread(target=self._receive_loop, daemon=True)
         self.thread.start()
+        logging.info("Pose thread started")
 
     def recv_all(self, n):
         data = b''
@@ -56,12 +60,15 @@ class URData:
                         pose.append(round(val, DECIMALS))
                     with self.lock:
                         self.latest_pose = pose
+                    # Signal new pose available
+                    self.pose_updated_event.set()
                 else:
-                    logging.warning("Incomplete data or no data")
+                    logging.warning("Incomplete data or no data in receiver")
             except Exception as e:
                 logging.warning(f"Exception in receive loop: {e}")
                 self.running = False
         self.reconnect()
+        
     
     def reconnect(self):
         while not self.running:
@@ -78,9 +85,9 @@ class URData:
                 logging.error(f"Reconnect failed: {e}")
                 time.sleep(5)  # wait and try again
 
-    def get_pose(self):
-        with self.lock:
-            return list(self.latest_pose)
+    # Add wait_for_update flag and timeout to get_pose
+    def get_pose(self, wait_for_update=False, timeout=0.2):
+        return list(self.latest_pose)
 
     def stop(self):
         self.running = False

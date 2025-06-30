@@ -7,6 +7,7 @@ import conveyor_belt
 import threading
 import time
 
+
 # camera = camera.Camera()
 # camera.connect(1, 1280, 720)
 
@@ -39,7 +40,7 @@ class Gui:
         self.calibration_button.pack(side='top', padx=10, pady=10)
         
         # Start button - starts the system
-        self.start_button = tk.Button(self.window, text="Start", command=self.quit, height=2, width=60)
+        self.start_button = tk.Button(self.window, text="Start", command=self.start, height=2, width=60)
         self.start_button.pack(side='top', padx=10, pady=10)
         
         # Stop button - halts the program
@@ -95,6 +96,9 @@ class Gui:
                 font=("Helvetica", 10),
                 anchor="n"  # Anchor the top of the text to y_position
             )
+            
+    def start(self):
+        pass
         
         
     def update_indicators(self, vector):

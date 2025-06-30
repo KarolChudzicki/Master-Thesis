@@ -9,15 +9,13 @@ import select
 logging.basicConfig(level=logging.INFO)
 
 class URRobot:
-    def __init__(self, host: str = '192.38.66.227', port1: int = 30001, port2: int = 30002, port3: int = 30003) -> None:
+    def __init__(self, host: str = '192.38.66.227', port1: int = 30001, port2: int = 30002) -> None:
         # REMEMBER TO CHANGE IP ADDRESS IN THE PROPORTIES OF THE DEVICES CONNECTED VIA ETHERNET (!!! TO A DIFFERENT THAN HOST1 !!!)
         self.s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s3 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.host = host
         self.port1 = port1
         self.port2 = port2
-        self.port3 = port3
         try:
             self.s1.connect((host,port1))
             logging.info(f"Successfully connected to {self.host}:{self.port1}")
@@ -30,11 +28,6 @@ class URRobot:
         except socket.error as e:
             logging.error((f"Failed to connect to {self.host}:{self.port2} - {e}"))
 
-        try:
-            self.s3.connect((host,port3))
-            logging.info(f"Successfully connected to {self.host}:{self.port3}")
-        except socket.error as e:
-            logging.error((f"Failed to connect to {self.host}:{self.port3} - {e}"))
         
     def movej(self, position, acceleration, velocity) -> None:
         # Convert degrees to radians
@@ -48,9 +41,10 @@ class URRobot:
         print(COMMAND.encode('utf-8'))
         self.s1.send(COMMAND.encode('utf-8'))
         
-    def movel(self, position, acceleration, velocity, time)-> None:
-        command = 'movel(' + 'p' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + ',' + str(time) +')\n'
+    def movel(self, position, acceleration, velocity, time_to)-> None:
+        command = 'movel(' + 'p' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + ',' + str(time_to) +')\n'
         self.s1.send(command.encode('utf-8'))
+        time.sleep(time_to)
         
     def speed(self, jointSpeed)-> None:
         COMMAND = 'speed(' + str(jointSpeed) + ')\n'

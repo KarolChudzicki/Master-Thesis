@@ -227,16 +227,10 @@ class Camera:
 
     def calculate_coords_edge_center(self, contours, frame):
         if not contours:
-            # if self.last_coordinates is not None and self.no_coordinates < 10:
-            #     coordinates = self.last_coordinates
-            #     self.no_coordinates = self.no_coordinates + 1
-            # else:
-            #     coordinates = np.array([0,0,0])
             coordinates = np.array([0,0,0])
             return coordinates, 0, frame, 0
         
         
-        # self.no_coordinates = 0
 
         contour = max(contours, key=cv.contourArea)
         rect = cv.minAreaRect(contour)
@@ -261,7 +255,6 @@ class Camera:
             rect_width, rect_height = rect_height, rect_width
             angle_rect -= 90
 
-        #cv.circle(edges, center_rect, 5, (255, 255, 0), 2)
 
         # 3D reconstruction
         K_inv = np.linalg.inv(self.camera_matrix)
@@ -300,11 +293,6 @@ class Camera:
 
     def calculate_coords_rect_center(self, contours, frame, part_number):
         if not contours:
-        #     if self.last_coordinates is not None and self.no_coordinates < 10:
-        #         coordinates = self.last_coordinates
-        #         self.no_coordinates = self.no_coordinates + 1
-        #     else:
-        #         coordinates = np.array([0,0,0])
             coordinates = np.array([0,0,0])
             return coordinates, 0, frame, 0
         
