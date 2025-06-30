@@ -441,19 +441,25 @@ class Camera:
             if part_number >= 3:
                 part_number = 0
             area, angle = self.capture_and_get_object_area_and_angle(part_number)
+            print("Area 1",area)
         
         #print(part_number)
         
         area_array = []
         angle_array = []
-        area_captures = 10
+        area_captures = 5
         # Loop to double check the area
+        loopTimeout = time.time()
         while len(area_array) < area_captures:
             area, angle = self.capture_and_get_object_area_and_angle(part_number)
-            if area is not None:
+            if area is not None or area > 0:
                 area_array.append(area)
-            if angle is not None:
-                angle_array.append(angle)
+                if angle is not None:
+                    angle_array.append(angle)
+            
+            if time.time() - loopTimeout > 15:
+                print("Part detection loop timeout")
+                return None, None
         
         
         # Filter out too small values

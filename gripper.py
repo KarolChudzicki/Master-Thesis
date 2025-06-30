@@ -219,6 +219,3 @@ class Gripper:
         return crcl, crch, crc
 
 
-    
-
-

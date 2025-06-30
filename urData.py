@@ -67,7 +67,8 @@ class URData:
             except Exception as e:
                 logging.warning(f"Exception in receive loop: {e}")
                 self.running = False
-        self.reconnect()
+                self.reconnect()
+        
         
     
     def reconnect(self):

@@ -12,21 +12,15 @@ class URRobot:
     def __init__(self, host: str = '192.38.66.227', port1: int = 30001, port2: int = 30002) -> None:
         # REMEMBER TO CHANGE IP ADDRESS IN THE PROPORTIES OF THE DEVICES CONNECTED VIA ETHERNET (!!! TO A DIFFERENT THAN HOST1 !!!)
         self.s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.host = host
         self.port1 = port1
-        self.port2 = port2
+
         try:
             self.s1.connect((host,port1))
             logging.info(f"Successfully connected to {self.host}:{self.port1}")
         except socket.error as e:
             logging.error((f"Failed to connect to {self.host}:{self.port1} - {e}"))
 
-        try:
-            self.s2.connect((host,port2))
-            logging.info(f"Successfully connected to {self.host}:{self.port2}")
-        except socket.error as e:
-            logging.error((f"Failed to connect to {self.host}:{self.port2} - {e}"))
 
         
     def movej(self, position, acceleration, velocity) -> None:
@@ -50,20 +44,21 @@ class URRobot:
         COMMAND = 'speed(' + str(jointSpeed) + ')\n'
         self.s1.send(COMMAND.encode('utf-8'))
 
-    def rSleep(self, time)-> None:
-        COMMAND = 'sleep(' + str(time) + '.)\n'
-        self.s2.send(COMMAND.encode('utf-8'))
+    # def rSleep(self, time)-> None:
+    #     COMMAND = 'sleep(' + str(time) + '.)\n'
+    #     self.s2.send(COMMAND.encode('utf-8'))
         
-    def is_steady(self):
-        COMMAND = 'is_steady()\n'
-        self.s2.send(COMMAND.encode('utf-8'))
-        response = self.s2.recv(1)
-        print(response)
+    # def is_steady(self):
+    #     COMMAND = 'is_steady()\n'
+    #     self.s2.send(COMMAND.encode('utf-8'))
+    #     response = self.s2.recv(1)
+    #     print(response)
     
     
-    def speedl(self, speed_vector, acceleration, time) -> None:
-        COMMAND = 'speedl(' + str(speed_vector) + ',' + str(acceleration) + ',' + str(time) + ')\n'
+    def speedl(self, speed_vector, acceleration, duration) -> None:
+        COMMAND = 'speedl(' + str(speed_vector) + ',' + str(acceleration) + ',' + str(duration) + ')\n'
         self.s1.send(COMMAND.encode('utf-8'))
+        time.sleep(0.01)
 
 
 

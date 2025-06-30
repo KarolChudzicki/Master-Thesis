@@ -21,7 +21,7 @@ robotControl.move_home(4)
 
 def image_show():
     while True:
-        coords, area, frame, angle = camera.capture_and_get_coords_center(1)
+        coords, area, frame, angle = camera.capture_and_get_coords_center(2)
         #print(coords)
         #print(angle)
         cv.imshow("Frame", frame)
@@ -35,31 +35,34 @@ def robot_main_loop():
         part_number = None
         while part_number is None:
             part_number, angle = camera.identifyingPart()
+
             
-        #print(part_number, angle)
 
         loopTimeout = time.time()
         while True:
-            avg_velocity_x, avg_velocity_x2, _ = robotControl.rough_estimation(part_number)
+            _, avg_velocity, _ = robotControl.rough_estimation(part_number)
             last_position_time = time.time()
-            if avg_velocity_x is not None:
+            if avg_velocity is not None:
                 break
             elif time.time() - loopTimeout > 10:
                 break
 
-        #print(avg_velocity_x, avg_velocity_x2)
         
+        if avg_velocity is not None:
         
-        # Guide the robot to the part
-        velocity_vector = robotControl.follow_part(part_number, avg_velocity_x2, last_position_time)
-        
-        ret = robotControl.descend_and_grab(velocity_vector, angle, part_number)
-        if ret is not None:
-            storage_indicator_array = robotControl.move_part_away(part_number)
-            app.update_indicators(storage_indicator_array)
+            # Guide the robot to the part
+            velocity_vector = robotControl.follow_part(part_number, avg_velocity, last_position_time)
             
-        time.sleep(5)
+            ret = robotControl.descend_and_grab(velocity_vector, angle, part_number)
+            if ret is not None:
+                storage_indicator_array = robotControl.move_part_away(part_number)
+                app.update_indicators(storage_indicator_array)
+                
+            
+        else:
+            print("Invalid part speed")
     
+        time.sleep(3)
 
 root = tk.Tk()
 app = Gui(root, camera_instance=camera)
