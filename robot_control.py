@@ -8,6 +8,7 @@ import urData
 import gripper
 import math
 from scipy.spatial.transform import Rotation as R
+import threading
 
 gripper = gripper.Gripper()
 
@@ -44,7 +45,7 @@ class robotControl:
         self.DROP2_ABOVE = self.DROP2.copy()
         self.DROP2_ABOVE[2] = pose_above
 
-        shift_for_drop3 = 0.05775 + shift_for_drop2
+        shift_for_drop3 = 0.05775
         self.DROP3 = self.DROP2.copy()
         self.DROP3[1] += shift_for_drop3
         self.DROP3_ABOVE = self.DROP3.copy()
@@ -142,7 +143,7 @@ class robotControl:
         y_threshold_distance = 0.0005 # 1mm
         
         kx = 0.2
-        ky = 3
+        ky = 1
         
         
         while True:
@@ -168,7 +169,7 @@ class robotControl:
                 x_speed = initial_speed + max_speed_x * slow_factor
                 x_speed = float(x_speed)
             else:
-                delta_speed = x_speed - initial_speed
+                delta_speed = x_speed - 0.0325
                 if abs(delta_speed) > 0.001:
                     steps = 10
                     for i in range(steps):
@@ -183,11 +184,11 @@ class robotControl:
             
             
             # Update Y speed with correct direction (signed)
-            print("Y distance: ",y_distance)
+            
             if abs(y_distance) > y_threshold_distance:
                 y_speed = ky * y_distance
                 # Clamp y_speed to [-max_speed_y, max_speed_y]
-                y_speed = max(-max_speed_y, min(y_speed, max_speed_y))
+                y_speed = -max(-max_speed_y, min(y_speed, max_speed_y))
                 y_speed = float(y_speed)
             else:
                 y_speed = y_speed * 0.05
@@ -196,7 +197,7 @@ class robotControl:
                 y_speed = float(y_speed)
                     
 
-            
+            print("Y distance, speed: ",y_distance , y_speed)
             #Safety check: avoid going out of bounds
             
             escape_vector = self.is_within_bounds(pose[:3])
@@ -209,7 +210,7 @@ class robotControl:
             
             
             velocity_vector = [x_speed, y_speed, 0, 0, 0, 0]
-            print("Vel vector: ",velocity_vector)
+            #print("Vel vector: ",velocity_vector)
             URRobot.speedl(velocity_vector, 0.2, 0.5)
             
         
@@ -245,10 +246,13 @@ class robotControl:
         last_rotation_time = time.time()
         rz_speed = 0
         rz_pose = 0
+        
+        #threading.Thread(target=image_show, daemon=True).start()
+        
         while True:
             pose = URReceiver.get_pose()  # current z position
             z_pose = pose[2]
-
+        
             # Calculate vertical distance above descend height, but never negative
             z_distance = max(z_pose - descend_height, 0)
 
@@ -307,7 +311,7 @@ class robotControl:
                 
 
                 velocity_vector = [x_speed, y_speed, z_speed, 0, 0, rz_speed]
-                print("Vel vector descending: ",velocity_vector)
+                #print("Vel vector descending: ",velocity_vector)
                 URRobot.speedl(velocity_vector, 0.2, 0.5)
 
                 # If within 1mm from target height, stop
@@ -356,10 +360,15 @@ class robotControl:
         else:
             logging.info(f"Storage for part {part_number + 1} full !!!")
             
+            
+        required_parts = [self.indicator_array[3], self.indicator_array[4], self.indicator_array[5]]       
+        
+        if all(required_parts):
+            print("We have all parts")
+        
         self.move_home(5)
         
-        # Shifting stuff in the array
-        a = self.indicator_array
+        
         
         return self.indicator_array
 
@@ -369,3 +378,7 @@ class robotControl:
         gripper.open_close(85, 100, 1)
         time.sleep(0.5)
         URRobot.movel(above, 0.2, 0.2, 3)
+
+
+    def assemble_product(self):
+        pass

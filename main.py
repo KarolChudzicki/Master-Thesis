@@ -22,8 +22,8 @@ robotControl.move_home(4)
 def image_show():
     while True:
         coords, area, frame, angle = camera.capture_and_get_coords_center(2)
-        #print(coords)
-        #print(angle)
+
+        
         cv.imshow("Frame", frame)
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
@@ -36,7 +36,6 @@ def robot_main_loop():
         while part_number is None:
             part_number, angle = camera.identifyingPart()
 
-            
 
         loopTimeout = time.time()
         while True:

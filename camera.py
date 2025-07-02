@@ -155,6 +155,8 @@ class Camera:
             # CROPPING THE IMAGE
             cv.rectangle(frame, (0, 0), (width//2, h), (0, 0, 0), -1)
             cv.rectangle(frame, (w - width//2, 0), (w, h), (0, 0, 0), -1)
+            
+            
 
             # ==================== Get parameters ====================
 
@@ -183,6 +185,11 @@ class Camera:
 
             lower_bound = (h_low, s_low, v_low)
             upper_bound = (h_up, s_up, v_up)
+            
+            # Normalization
+            
+            # gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+            # frame = cv.normalize(gray, None, 0, 255, cv.NORM_MINMAX) 
 
             # ==================== Applying mask ====================
             lab = cv.cvtColor(frame, cv.COLOR_BGR2LAB)
