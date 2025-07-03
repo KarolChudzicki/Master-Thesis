@@ -454,7 +454,7 @@ class Camera:
         
         area_array = []
         angle_array = []
-        area_captures = 5
+        area_captures = 3
         # Loop to double check the area
         loopTimeout = time.time()
         while len(area_array) < area_captures:
@@ -473,8 +473,29 @@ class Camera:
         max_area = max(area_array)
         filtered_areas = [a for a in area_array if abs(a - max_area) <= 4000] 
         
-        #print(angle_array)
-        angle = sum(angle_array) / len(angle_array)
+        # Filter out incorrect
+        positive_count_angle = sum(1 for x in angle_array if x > 0)
+        negative_count_angle = sum(1 for x in angle_array if x < 0)
+        
+        if positive_count_angle >= negative_count_angle:
+            # Positive
+            angle_array = [abs(x) for x in angle_array]
+            max_angle = max(angle_array)
+            # Filter out angles that are further than 5 deg from max_angle
+            filtered_angles = [a for a in angle_array if abs(a - max_angle) <= 5]  
+            
+        else:
+            # Negative
+            angle_array = [-abs(x) for x in angle_array]
+            # Filter out angles that are further than 5 deg from max_angle
+            min_angle = min(angle_array)
+            filtered_angles = [a for a in angle_array if abs(a - min_angle) <= 5]  
+            
+           
+        
+        print("Angle array:", filtered_angles)
+
+        angle = sum(filtered_angles) / len(filtered_angles)
         
         area = sum(filtered_areas) / len(filtered_areas)
         
@@ -483,7 +504,7 @@ class Camera:
             part = 1
         elif area > 34000 and area <= 48000:
             part = 0
-        elif area > 48000 and area <= 65000:
+        elif area > 48000 and area <= 75000:
             part = 2
         else:
             part = None

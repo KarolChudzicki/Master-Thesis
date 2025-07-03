@@ -34,18 +34,18 @@ class robotControl:
 
         # Tray positions
         pose_above = 0.2
-        self.DROP1 = [-0.625, 0.035, 0.063, 3.0352, -0.0244, -0.7915]
+        self.DROP1 = [-0.625, 0.035, 0.0617, 3.0383, -0.0147, -0.7923]
 
         self.DROP1_ABOVE = self.DROP1.copy()
         self.DROP1_ABOVE[2] = pose_above
 
-        shift_for_drop2 = 0.07025
+        shift_for_drop2 = 0.066
         self.DROP2 = self.DROP1.copy()
         self.DROP2[1] += shift_for_drop2
         self.DROP2_ABOVE = self.DROP2.copy()
         self.DROP2_ABOVE[2] = pose_above
 
-        shift_for_drop3 = 0.05775
+        shift_for_drop3 = 0.063
         self.DROP3 = self.DROP2.copy()
         self.DROP3[1] += shift_for_drop3
         self.DROP3_ABOVE = self.DROP3.copy()
@@ -69,6 +69,12 @@ class robotControl:
         
     def move_home(self, time_to):
         URRobot.movel(self.HOME1, 0.1, 0.1, time_to)
+        
+    def move_drop1(self, time_to):
+        gripper.open_close(40, 10, 1)
+        time.sleep(5)
+        URRobot.movel(self.DROP1_ABOVE, 0.1, 0.1, time_to)
+        URRobot.movel(self.DROP1, 0.1, 0.1, time_to)
         
     def rough_estimation(self, part_number):
         parts_area = [40000, 27000, 53000]
@@ -98,11 +104,12 @@ class robotControl:
                 if delta_time > 0:
                     velocity = delta_pos / delta_time  # [vx, vy]
                     velocities.append(velocity)
-            
+
+            print("Velocities vector:", velocities)            
             avg_velocity = np.mean(velocities, axis=0)
             avg_velocity_x = round(float(avg_velocity),7)
             
-            avg_velocity2 = (self.coords_array[5]-self.coords_array[-1])/(self.time_stamps[5]-self.time_stamps[-1])
+            avg_velocity2 = (self.coords_array[5]-self.coords_array[10])/(self.time_stamps[5]-self.time_stamps[10])
             avg_velocity2 = round(avg_velocity2,7)
             
             last_coords = self.coords_array[-1]
@@ -130,15 +137,16 @@ class robotControl:
 
     def follow_part(self, part_number, initial_speed, last_position_time):
         
+        print("Initial speed:", initial_speed)
         # Configuration values
-        max_speed_x = -0.04
+        max_speed_x = -0.1
         
         max_speed_y = 0.01
         
         x_speed = initial_speed
         y_speed = 0
         
-        slowdown_radius = 0.08 # 8cm
+        slowdown_radius = 0.06 # 6cm
         x_threshold_distance = 0.002 # 2mm
         y_threshold_distance = 0.0005 # 1mm
         
@@ -169,11 +177,11 @@ class robotControl:
                 x_speed = initial_speed + max_speed_x * slow_factor
                 x_speed = float(x_speed)
             else:
-                delta_speed = x_speed - 0.0325
+                delta_speed = x_speed - initial_speed
                 if abs(delta_speed) > 0.001:
-                    steps = 10
+                    steps = 5
                     for i in range(steps):
-                        x_speed = x_speed - delta_speed/steps
+                        x_speed = x_speed - delta_speed/(steps + 1)
                         velocity_vector = [x_speed, 0, 0, 0, 0, 0]
                         URRobot.speedl(velocity_vector, 0.5, 0.5)
                         
@@ -210,7 +218,7 @@ class robotControl:
             
             
             velocity_vector = [x_speed, y_speed, 0, 0, 0, 0]
-            #print("Vel vector: ",velocity_vector)
+            print("Vel vector: ",velocity_vector)
             URRobot.speedl(velocity_vector, 0.2, 0.5)
             
         
@@ -219,35 +227,37 @@ class robotControl:
 
         
     def descend_and_grab(self, velocity_vector, angle, part_number):
+        
+        target_descend_time = 4
+        
         x_speed = velocity_vector[0]
         y_speed = velocity_vector[1]
-        max_speed_z = -0.05
-        max_speed_rz = 0.2
-        descend_height = -0.102  # target height, e.g. 7cm
-        slowdown_radius = 0.03  # 3cm slowdown radius
-        slowdown_angle = 0.5
+        max_speed_z = -0.1
+        max_speed_rz = 0.5
+        descend_height = -0.1  # target height -10cm
+        slowdown_radius = 0.1  # 10cm slowdown radius
+        slowdown_angle = 0.2
         
         rz_speed = 0.0
         z_speed = 0.0
         
         ramp_rate_z = 0.001
-        ramp_rate_rz = 0.0005
+        ramp_rate_rz = 0.01
+        
+        print("Target angle:", angle)
         
         # To prevent jumps
-        if abs(angle) > 88:
-            angle = 0
-        elif angle > 0:
+        if angle > 0:
             angle -= 90
         elif angle < 0:
             angle += 90
         target_angle_rad = math.radians(angle)
-        
+        print("Target angle:", target_angle_rad)
         
         last_rotation_time = time.time()
         rz_speed = 0
         rz_pose = 0
         
-        #threading.Thread(target=image_show, daemon=True).start()
         
         while True:
             pose = URReceiver.get_pose()  # current z position
@@ -295,7 +305,7 @@ class robotControl:
                 slow_factor_angle = abs(normalized_rotation) ** 0.5 * np.sign(normalized_rotation)
             
                 if abs(rz_rotation) < 0.01:
-                    rz_speed = rz_speed * 0.1
+                    rz_speed = rz_speed * 0.05
                     if abs(rz_speed) < 1e-6:
                         rz_speed = 0
                 else:
@@ -314,11 +324,11 @@ class robotControl:
                 #print("Vel vector descending: ",velocity_vector)
                 URRobot.speedl(velocity_vector, 0.2, 0.5)
 
-                # If within 1mm from target height, stop
-                if z_distance < 0.001:
-                    z_speed = 0
+                # If within 10mm from target height, stop
+                if z_distance < 0.01:
+                    z_speed
                     velocity_vector = [0, 0, 0, 0, 0, 0]
-                    URRobot.speedl(velocity_vector, 0.2, 5)
+                    URRobot.speedl(velocity_vector, 0.1, 5)
                     if part_number == 0:
                         gripper.open_close(50, 100, 1)
                     elif part_number == 1:
@@ -328,7 +338,28 @@ class robotControl:
                     time.sleep(0.5)
                     return 0
                 
-                
+    def decelerate_speed(total_distance, velocity_vector, axis):
+        """
+        Returns a speed that decreases smoothly from initial speed to 0 
+        in a input distance 'total_distance'
+
+        Parameters:
+            total_distance (float): The full distance over which speed should reduce to 0.
+            initial_speed (float): The starting speed.
+            axis (int): Velocity axis 1 - x, 2 - y, 3 - z, 4 - rx, 5 - ry, 6 - rz.
+        Returns:
+            float: The current target speed.
+        """
+        if total_distance <= 0:
+            return 0.0
+
+        # Deceleration
+        a = - initial_speed ** 2 / (2 * total_distance)
+        
+        speed = initial_speed
+        startTime = time.time()
+        while abs(speed):
+            URRobot.speedl(velocity_vector, 0.2, 5)        
 
            
     def move_part_away(self, part_number):

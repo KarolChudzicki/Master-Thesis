@@ -64,7 +64,7 @@ def robot_main_loop():
         time.sleep(3)
 
 root = tk.Tk()
-app = Gui(root, camera_instance=camera)
+app = Gui(root, camera_instance=camera, robot_instance=robotControl)
 threading.Thread(target=image_show, daemon=True).start()
 threading.Thread(target=robot_main_loop, daemon=True).start()
 

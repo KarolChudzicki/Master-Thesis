@@ -15,10 +15,10 @@ conveyor = conveyor_belt.conveyorBelt()
 
 
 class Gui:
-    def __init__(self, window, camera_instance):
+    def __init__(self, window, camera_instance, robot_instance):
         self.window = window
         self.window.title("Camera GUI")
-        self.window.geometry("700x700")
+        self.window.geometry("700x900")
         self.window.resizable(False, False)
         self.window.configure(bg="white")  # Helps see layout during testing
         
@@ -28,6 +28,7 @@ class Gui:
         self.is_starting = False
 
         self.camera = camera_instance
+        self.robot = robot_instance
         
     def main_window(self):
         
@@ -40,7 +41,7 @@ class Gui:
         self.calibration_button.pack(side='top', padx=10, pady=10)
         
         # Start button - starts the system
-        self.start_button = tk.Button(self.window, text="Start", command=self.start, height=2, width=60)
+        self.start_button = tk.Button(self.window, text="Start", command=self.drop1, height=2, width=60)
         self.start_button.pack(side='top', padx=10, pady=10)
         
         # Stop button - halts the program
@@ -58,6 +59,18 @@ class Gui:
         # Stop conveyor
         self.stop_conv_button = tk.Button(self.window, text="Stop conveyor", command=self.stop_conveyor, height=2, width=60)
         self.stop_conv_button.pack(side='top', padx=10, pady=10)
+        
+        # Stop conveyor
+        self.speed100_button = tk.Button(self.window, text="Speed 10.0 Hz", command=self.set_speed_conveyor100, height=2, width=60)
+        self.speed100_button.pack(side='top', padx=10, pady=10)
+        
+        # Stop conveyor
+        self.speed150_button = tk.Button(self.window, text="Speed 15.0 Hz", command=self.set_speed_conveyor150, height=2, width=60)
+        self.speed150_button.pack(side='top', padx=10, pady=10)
+        
+        # Stop conveyor
+        self.speed200_button = tk.Button(self.window, text="Speed 20.0 Hz", command=self.set_speed_conveyor200, height=2, width=60)
+        self.speed200_button.pack(side='top', padx=10, pady=10)
         
         self.rect_size = 90
         self.rect_padding = 26
@@ -99,6 +112,12 @@ class Gui:
             
     def start(self):
         pass
+    
+    def home(self):
+        self.robot.home()
+        
+    def drop1(self):
+        self.robot.move_drop1(4)
         
         
     def update_indicators(self, vector):
@@ -245,6 +264,15 @@ class Gui:
         
     def start_conveyor(self):
         threading.Thread(target=self._start_conveyor_worker, daemon=True).start()
+    
+    def set_speed_conveyor100(self):
+        threading.Thread(target=self._set_speed_conveyor_worker100, daemon=True).start()
+    
+    def set_speed_conveyor150(self):
+        threading.Thread(target=self._set_speed_conveyor_worker150, daemon=True).start()
+    
+    def set_speed_conveyor200(self):
+        threading.Thread(target=self._set_speed_conveyor_worker200, daemon=True).start()
         
     def _start_conveyor_worker(self):
         try:
@@ -253,15 +281,27 @@ class Gui:
             print(f"Error starting conveyor: {e}")
             
         try:
-            conveyor.setSpeed(100)
-        except Exception as e:
-            print(f"Error starting conveyor: {e}")
-            
-        try:
             conveyor.start()
         except Exception as e:
             print(f"Error starting conveyor: {e}")
         
+    def _set_speed_conveyor_worker100(self):
+        try:
+            conveyor.setSpeed(100)
+        except Exception as e:
+            print(f"Error starting conveyor: {e}")
+        
+    def _set_speed_conveyor_worker150(self):
+        try:
+            conveyor.setSpeed(150)
+        except Exception as e:
+            print(f"Error starting conveyor: {e}")
+    
+    def _set_speed_conveyor_worker200(self):
+        try:
+            conveyor.setSpeed(200)
+        except Exception as e:
+            print(f"Error starting conveyor: {e}")
     
     def stop_conveyor(self):
         threading.Thread(target=self._stop_conveyor_worker, daemon=True).start()

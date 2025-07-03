@@ -58,7 +58,7 @@ class URRobot:
     def speedl(self, speed_vector, acceleration, duration) -> None:
         COMMAND = 'speedl(' + str(speed_vector) + ',' + str(acceleration) + ',' + str(duration) + ')\n'
         self.s1.send(COMMAND.encode('utf-8'))
-        time.sleep(0.01)
+        time.sleep(0.02)
 
 
 
