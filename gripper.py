@@ -3,7 +3,6 @@
 # and control its position, speed, and force. The gripper's status can be checked
 # using a function check status
 
-import misc
 import serial
 import time
 import logging
@@ -87,7 +86,7 @@ class Gripper:
                 REGISTERS_WRITTEN_TO_HIGH,
                 REGISTERS_WRITTEN_TO_LOW]
         
-        CRCL, CRCH, _ =  misc.modbusCrc(command)
+        CRCL, CRCH, _ =  self.modbusCrc(command)
         command.append(CRCH)
         command.append(CRCL)
         self.ser.write(command)
@@ -217,5 +216,6 @@ class Gripper:
         crcl = (crc >> 8) & 0xFF
         crch = crc & 0xFF
         return crcl, crch, crc
+
 
 

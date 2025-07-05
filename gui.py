@@ -72,6 +72,14 @@ class Gui:
         self.speed200_button = tk.Button(self.window, text="Speed 20.0 Hz", command=self.set_speed_conveyor200, height=2, width=60)
         self.speed200_button.pack(side='top', padx=10, pady=10)
         
+        # Stop conveyor
+        self.speed250_button = tk.Button(self.window, text="Speed 25.0 Hz", command=self.set_speed_conveyor250, height=2, width=60)
+        self.speed250_button.pack(side='top', padx=10, pady=10)
+        
+        # Stop conveyor
+        self.speed300_button = tk.Button(self.window, text="Speed 30.0 Hz", command=self.set_speed_conveyor300, height=2, width=60)
+        self.speed300_button.pack(side='top', padx=10, pady=10)
+        
         self.rect_size = 90
         self.rect_padding = 26
         self.storage_indicators = []
@@ -273,7 +281,14 @@ class Gui:
     
     def set_speed_conveyor200(self):
         threading.Thread(target=self._set_speed_conveyor_worker200, daemon=True).start()
-        
+      
+    def set_speed_conveyor250(self):
+        threading.Thread(target=self._set_speed_conveyor_worker250, daemon=True).start()
+    
+    def set_speed_conveyor300(self):
+        threading.Thread(target=self._set_speed_conveyor_worker300, daemon=True).start()
+    
+      
     def _start_conveyor_worker(self):
         try:
             conveyor.setDirection(1)
@@ -300,6 +315,18 @@ class Gui:
     def _set_speed_conveyor_worker200(self):
         try:
             conveyor.setSpeed(200)
+        except Exception as e:
+            print(f"Error starting conveyor: {e}")
+    
+    def _set_speed_conveyor_worker250(self):
+        try:
+            conveyor.setSpeed(250)
+        except Exception as e:
+            print(f"Error starting conveyor: {e}")
+            
+    def _set_speed_conveyor_worker300(self):
+        try:
+            conveyor.setSpeed(300)
         except Exception as e:
             print(f"Error starting conveyor: {e}")
     

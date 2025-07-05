@@ -12,7 +12,14 @@ logging.basicConfig(level=logging.INFO)
 
 
 class Camera:
-    def __init__(self):
+    def __init__(self, camera_id, width, height):
+        self.cap = cv.VideoCapture(camera_id, cv.CAP_DSHOW) 
+        # Set desired resolution
+        self.cap.set(cv.CAP_PROP_FRAME_WIDTH, width)
+        self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, height)
+        self.width = int(self.cap.get(cv.CAP_PROP_FRAME_WIDTH))
+        self.height = int(self.cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+
 
                 # Read file
         with open('calib_param.txt', 'r') as f:
@@ -113,6 +120,8 @@ class Camera:
             [ 0.03,  0.04, 0], # Top right
             [ 0.03,  -0.04, 0] # Top left
         ])
+        
+        self.new_camera_matrix, self.roi = cv.getOptimalNewCameraMatrix(self.camera_matrix, self.distortion_coeffs, (self.width, self.height), 1, (self.width, self.height))
 
     def update_params(self):
         # Load JSON data from file
@@ -126,14 +135,7 @@ class Camera:
         with open("slider_params_BottomCasing.json", "r") as file:
             self.data_json[0] = json.load(file)
         print("Params updated")
-
-    def connect(self, camera_id, width, height) -> None:
-        self.cap = cv.VideoCapture(camera_id, cv.CAP_DSHOW) 
-        # Set desired resolution
-        self.cap.set(cv.CAP_PROP_FRAME_WIDTH, width)
-        self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, height)
-        self.width = int(self.cap.get(cv.CAP_PROP_FRAME_WIDTH))
-        self.height = int(self.cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+        
 
 
     def capture(self, width, part_number, show_or_not, from_json, params) -> np.array:
@@ -141,14 +143,11 @@ class Camera:
         (ret, frame) = self.cap.read()
         self.fps = self.cap.get(cv.CAP_PROP_FPS)
         if ret:
-        
-            new_camera_matrix, roi = cv.getOptimalNewCameraMatrix(self.camera_matrix, self.distortion_coeffs, (self.width, self.height), 1, (self.width, self.height))
-
             # ==================== Undistort the image ====================
-            undistorted_img = cv.undistort(frame, self.camera_matrix, self.distortion_coeffs, None, new_camera_matrix)
+            undistorted_img = cv.undistort(frame, self.camera_matrix, self.distortion_coeffs, None, self.new_camera_matrix)
             
             # ==================== Crop the image to the valid region of interest ====================
-            x, y, w, h = roi
+            x, y, w, h = self.roi
             undistorted_img = undistorted_img[y:y+h, x:x+w]
             frame = undistorted_img
 
@@ -448,7 +447,6 @@ class Camera:
             if part_number >= 3:
                 part_number = 0
             area, angle = self.capture_and_get_object_area_and_angle(part_number)
-            print("Area 1",area)
         
         #print(part_number)
         
@@ -493,7 +491,6 @@ class Camera:
             
            
         
-        print("Angle array:", filtered_angles)
 
         angle = sum(filtered_angles) / len(filtered_angles)
         

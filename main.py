@@ -12,8 +12,7 @@ from gui import Gui
 import threading
 import tkinter as tk
 
-camera = camera.Camera()
-camera.connect(1, 1280, 720)
+camera = camera.Camera(1, 1280, 720)
 
 robotControl = robot_control.robotControl(camera_instance=camera)
 
@@ -21,9 +20,7 @@ robotControl.move_home(4)
 
 def image_show():
     while True:
-        coords, area, frame, angle = camera.capture_and_get_coords_center(2)
-
-        
+        coords, area, frame, angle = camera.capture_and_get_coords_center(0)
         cv.imshow("Frame", frame)
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
@@ -37,20 +34,15 @@ def robot_main_loop():
             part_number, angle = camera.identifyingPart()
 
 
-        loopTimeout = time.time()
-        while True:
-            _, avg_velocity, _ = robotControl.rough_estimation(part_number)
-            last_position_time = time.time()
-            if avg_velocity is not None:
-                break
-            elif time.time() - loopTimeout > 10:
-                break
 
+        avg_velocity, last_coords, last_coords_time = robotControl.rough_estimation(part_number)
+
+        print("Avg velocity, last coords", avg_velocity, last_coords)
         
         if avg_velocity is not None:
         
             # Guide the robot to the part
-            velocity_vector = robotControl.follow_part(part_number, avg_velocity, last_position_time)
+            velocity_vector = robotControl.follow_part(part_number, avg_velocity, last_coords, last_coords_time)
             
             ret = robotControl.descend_and_grab(velocity_vector, angle, part_number)
             if ret is not None:
