@@ -1,8 +1,8 @@
 {
-    "H low": 40,
-    "S low": 50,
-    "V low": 50,
-    "H up": 80,
+    "H low": 25,
+    "S low": 53,
+    "V low": 55,
+    "H up": 255,
     "S up": 255,
     "V up": 255,
     "Erosion": 4,

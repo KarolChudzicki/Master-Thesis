@@ -97,7 +97,8 @@ class Camera:
         self.prev_box_sorted = None
         self.last_coordinates = None
         self.no_coordinates = 0
-        
+        self.max_coords_history_len = 3
+        self.coords_history = []
         
         # Sizes of objects for solve PNP
         self.object_points1 = np.array([
@@ -231,79 +232,20 @@ class Camera:
         
 
 
-    def calculate_coords_edge_center(self, contours, frame):
-        if not contours:
-            coordinates = np.array([0,0,0])
-            return coordinates, 0, frame, 0
-        
-        
-
-        contour = max(contours, key=cv.contourArea)
-        rect = cv.minAreaRect(contour)
-        center_rect, (rect_width, rect_height), angle_rect = rect
-
-        box = cv.boxPoints(rect)
-        box = box.astype(int)
-        box_sorted = self.sort_points(box, 4)
-        
-        box_sorted_smoothed = box_sorted
-        
-        for i, point in enumerate(box_sorted_smoothed):
-            x, y = point
-            cv.circle(frame, (x, y), 5, (0, 255, 255), -1)
-            cv.putText(frame, f"{i}", (x + 5, y - 5), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv.LINE_AA)
-
-        center_rect = [int(max(center_rect)), int(min(center_rect))]
-        
-        cv.circle(frame, (center_rect[0], center_rect[1]), 5, (100, 100, 255), -1)
-
-        if rect_width < rect_height:
-            rect_width, rect_height = rect_height, rect_width
-            angle_rect -= 90
-
-
-        # 3D reconstruction
-        K_inv = np.linalg.inv(self.camera_matrix)
-        P1 = np.array([box_sorted_smoothed[2][0], box_sorted_smoothed[2][1], 1])
-        P2 = np.array([box_sorted_smoothed[3][0], box_sorted_smoothed[3][1], 1])
-
-        ray1 = K_inv @ P1
-        ray2 = K_inv @ P2
-
-        d = 0.06 / np.linalg.norm(ray1 - ray2)
-
-        pt1_3d_cam = ray1 * d
-        pt2_3d_cam = ray2 * d
-        middle_3d_cam = (pt1_3d_cam + pt2_3d_cam) / 2
-        middle_3d_cam = self.R_cam2gripper @ middle_3d_cam
-
-        pt_3d_robot = self.t_cam2gripper.T - middle_3d_cam
-        pt_3d_robot[0][0] -= 0.04
-
-        # Drawing
-        h, w = frame.shape[:2]
-        cv.arrowedLine(frame, (10, 10), (10, 60), (255, 255, 0), 2)
-        cv.putText(frame, 'Y', (15, 60), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
-        cv.arrowedLine(frame, (10, 10), (60, 10), (255, 0, 255), 2)
-        cv.putText(frame, 'X', (50, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
-        cv.circle(frame, (w // 2, h // 2), 50, (255, 255, 255), 2)
-
-        #cv.imshow('Frame', frame)
-
-        area = rect_height * rect_width
-        
-        coordinates = pt_3d_robot[0]
-        #self.last_coordinates = coordinates
-        
-        return coordinates, area, frame, angle_rect
-
     def calculate_coords_rect_center(self, contours, frame, part_number):
         if not contours:
-            coordinates = np.array([0,0,0])
+            coords_history_len = len(self.coords_history)
+            if coords_history_len > 0 and self.no_coordinates < coords_history_len:
+                coordinates = self.coords_history[self.no_coordinates]
+            else:
+                coordinates = np.array([0,0,0])
+            
+            self.no_coordinates += 1
             return coordinates, 0, frame, 0
+
+        else:
+            self.no_coordinates = 0
         
-        
-        self.no_coordinates = 0
 
         contour = max(contours, key=cv.contourArea)
         rect = cv.minAreaRect(contour)
@@ -376,6 +318,11 @@ class Camera:
         coordinates = center_3d_robot.tolist()
         
         
+        # Keep a small history of coordinates just in case there are 1-3 missing
+        self.coords_history.append(coordinates)
+        if len(self.coords_history) > self.max_coords_history_len:
+            self.coords_history.pop(0)
+
         
         return coordinates, area, frame, angle_rect        
     
@@ -423,10 +370,6 @@ class Camera:
             print("Invalid number of points")
             return None
         
-    def capture_and_get_coords_edge(self, part_number):
-        contours, edges, thresh, frame, gray_gray = self.capture(width=600, part_number=part_number, show_or_not=False, from_json=True, params=0)
-        coords, area, frame, angle = self.calculate_coords_edge_center(contours=contours, frame=frame)
-        return coords, area, frame, angle
     
     def capture_and_get_coords_center(self, part_number):
         contours, edges, thresh, frame, gray_gray = self.capture(width=600, part_number=part_number, show_or_not=False, from_json=True, params=0)
@@ -466,48 +409,51 @@ class Camera:
                 print("Part detection loop timeout")
                 return None, None
         
-        
-        # Filter out too small values
-        max_area = max(area_array)
-        filtered_areas = [a for a in area_array if abs(a - max_area) <= 4000] 
-        
-        # Filter out incorrect
-        positive_count_angle = sum(1 for x in angle_array if x > 0)
-        negative_count_angle = sum(1 for x in angle_array if x < 0)
-        
-        if positive_count_angle >= negative_count_angle:
-            # Positive
-            angle_array = [abs(x) for x in angle_array]
-            max_angle = max(angle_array)
-            # Filter out angles that are further than 5 deg from max_angle
-            filtered_angles = [a for a in angle_array if abs(a - max_angle) <= 5]  
+        if area_array and angle_array:
+            # Filter out too small values
+            max_area = max(area_array)
+            filtered_areas = [a for a in area_array if abs(a - max_area) <= 4000] 
             
-        else:
-            # Negative
-            angle_array = [-abs(x) for x in angle_array]
-            # Filter out angles that are further than 5 deg from max_angle
-            min_angle = min(angle_array)
-            filtered_angles = [a for a in angle_array if abs(a - min_angle) <= 5]  
+            # Filter out incorrect
+            positive_count_angle = sum(1 for x in angle_array if x > 0)
+            negative_count_angle = sum(1 for x in angle_array if x < 0)
             
-           
-        
+            if positive_count_angle >= negative_count_angle:
+                # Positive
+                angle_array = [abs(x) for x in angle_array]
+                max_angle = max(angle_array)
+                # Filter out angles that are further than 5 deg from max_angle
+                filtered_angles = [a for a in angle_array if abs(a - max_angle) <= 5]  
+                
+            else:
+                # Negative
+                angle_array = [-abs(x) for x in angle_array]
+                # Filter out angles that are further than 5 deg from max_angle
+                min_angle = min(angle_array)
+                filtered_angles = [a for a in angle_array if abs(a - min_angle) <= 5]  
+                
+            
+            
 
-        angle = sum(filtered_angles) / len(filtered_angles)
-        
-        area = sum(filtered_areas) / len(filtered_areas)
-        
-        
-        if area > 22000 and area <= 34000:
-            part = 1
-        elif area > 34000 and area <= 48000:
-            part = 0
-        elif area > 48000 and area <= 75000:
-            part = 2
-        else:
-            part = None
-                    
-        return part, angle
+            angle = sum(filtered_angles) / len(filtered_angles)
             
+            area = sum(filtered_areas) / len(filtered_areas)
+            
+            
+            if area > 22000 and area <= 34000:
+                part = 1
+            elif area > 34000 and area <= 48000:
+                part = 0
+            elif area > 48000 and area <= 75000:
+                part = 2
+            else:
+                part = None
+                        
+            return part, angle
+        
+        else:
+            logging.warning("Area or/and angle arrays are empty")
+            return None, None
             
 
     def initSlider(self):
