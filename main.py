@@ -35,15 +35,15 @@ def robot_main_loop():
             part_number, angle = camera.identifyingPart()
 
 
-
-        avg_velocity, last_coords, last_coords_time = robotControl.rough_estimation(part_number)
-
-        print("Avg velocity, last coords", avg_velocity, last_coords)
+        avg_velocity, last_coords, last_coords_time, last_coords_robot = robotControl.rough_estimation(part_number)
+        if avg_velocity is not None:
+            avg_formatted = f"{avg_velocity:.7f}".replace('.', ',')
+            print("Avg velocity: ", avg_formatted)
         
         if avg_velocity is not None:
         
             # Guide the robot to the part
-            velocity_vector = robotControl.follow_part(part_number, avg_velocity, last_coords, last_coords_time)
+            velocity_vector = robotControl.follow_part(part_number, avg_velocity, last_coords, last_coords_time, last_coords_robot)
             
             ret = robotControl.descend_and_grab(velocity_vector, angle, part_number)
             if ret is not None:

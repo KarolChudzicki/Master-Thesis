@@ -9,6 +9,8 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+
+
 class Gripper:
     def __init__(self, port='COM5', baudrate=115200, timeout=1, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, bytesize=8) -> None:
         self.default_speed = 50 # 50% speed
@@ -216,6 +218,4 @@ class Gripper:
         crcl = (crc >> 8) & 0xFF
         crch = crc & 0xFF
         return crcl, crch, crc
-
-
 

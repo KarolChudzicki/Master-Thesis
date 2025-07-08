@@ -60,9 +60,6 @@ class Gui:
         self.stop_conv_button = tk.Button(self.window, text="Stop conveyor", command=self.stop_conveyor, height=2, width=60)
         self.stop_conv_button.pack(side='top', padx=10, pady=10)
         
-        # Stop conveyor
-        self.speed100_button = tk.Button(self.window, text="Speed 10.0 Hz", command=self.set_speed_conveyor100, height=2, width=60)
-        self.speed100_button.pack(side='top', padx=10, pady=10)
         
         # Stop conveyor
         self.speed150_button = tk.Button(self.window, text="Speed 15.0 Hz", command=self.set_speed_conveyor150, height=2, width=60)
@@ -76,9 +73,6 @@ class Gui:
         self.speed250_button = tk.Button(self.window, text="Speed 25.0 Hz", command=self.set_speed_conveyor250, height=2, width=60)
         self.speed250_button.pack(side='top', padx=10, pady=10)
         
-        # Stop conveyor
-        self.speed300_button = tk.Button(self.window, text="Speed 30.0 Hz", command=self.set_speed_conveyor300, height=2, width=60)
-        self.speed300_button.pack(side='top', padx=10, pady=10)
         
         self.rect_size = 90
         self.rect_padding = 26
