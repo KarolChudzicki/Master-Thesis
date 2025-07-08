@@ -40,9 +40,6 @@ cleaned = re.sub(r'\s+', ' ', cleaned)
 distortion_coeffs = np.array([np.fromstring(cleaned.strip(), sep=' ')])
 
 
-
-
-
 # Check if the camera opened successfully
 if not cap.isOpened():
     print("Error: Could not open camera.")
@@ -54,7 +51,9 @@ print(file_count)
 toggle = False
 n = file_count
 
-width = 600
+# width = 600
+
+new_camera_matrix, roi = cv.getOptimalNewCameraMatrix(camera_matrix, distortion_coeffs, (frame_width, frame_height), 1, (frame_width, frame_height))
 
 while True:
     ret, frame = cap.read()
@@ -62,8 +61,7 @@ while True:
     key = cv.waitKey(1) & 0xFF
     
     if ret:
-        new_camera_matrix, roi = cv.getOptimalNewCameraMatrix(camera_matrix, distortion_coeffs, (frame_width, frame_height), 1, (frame_width, frame_height))
-
+        
         # ==================== Undistort the image ====================
         undistorted_img = cv.undistort(frame, camera_matrix, distortion_coeffs, None, new_camera_matrix)
             
@@ -73,8 +71,8 @@ while True:
         frame = undistorted_img
 
         # CROPPING THE IMAGE
-        cv.rectangle(frame, (0, 0), (width//2, h), (0, 0, 0), -1)
-        cv.rectangle(frame, (w - width//2, 0), (w, h), (0, 0, 0), -1)
+        # cv.rectangle(frame, (0, 0), (width//2, h), (0, 0, 0), -1)
+        # cv.rectangle(frame, (w - width//2, 0), (w, h), (0, 0, 0), -1)
 
 
         lab = cv.cvtColor(frame, cv.COLOR_BGR2LAB)

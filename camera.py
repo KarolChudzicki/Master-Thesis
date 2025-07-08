@@ -1,10 +1,8 @@
 import cv2 as cv
 import time
 import numpy as np
-import math
 import re
 import json
-import serial
 import time
 import logging
 
@@ -21,7 +19,7 @@ class Camera:
         self.height = int(self.cap.get(cv.CAP_PROP_FRAME_HEIGHT))
 
 
-                # Read file
+        # Open a file with camera calibration parameters
         with open('calib_param.txt', 'r') as f:
             lines = f.readlines()
 
@@ -47,6 +45,7 @@ class Camera:
         cleaned = re.sub(r'\s+', ' ', cleaned)
         self.distortion_coeffs = np.array([np.fromstring(cleaned.strip(), sep=' ')])
 
+        # Open a file with hand-eye calibration parameters
         with open('calib_param_hand_eye.txt', 'r') as f:
             lines = f.readlines()
 
@@ -99,8 +98,10 @@ class Camera:
         self.no_coordinates = 0
         self.max_coords_history_len = 3
         self.coords_history = []
+        self.coords_history_on = False
         
         # Sizes of objects for solve PNP
+        # Bottom casing
         self.object_points1 = np.array([
             [-0.03, -0.04, 0], # Bottom left
             [-0.03,  0.04, 0], # Bottom right
@@ -108,6 +109,7 @@ class Camera:
             [ 0.03,  -0.04, 0] # Top left
         ])
         
+        # Integrated circuit
         self.object_points2 = np.array([
             [-0.023, -0.033, 0], # Bottom left
             [-0.023,  0.033, 0], # Bottom right
@@ -115,6 +117,7 @@ class Camera:
             [ 0.023, -0.033, 0] # Top left
         ])
         
+        # Top cover
         self.object_points1 = np.array([
             [-0.03, -0.04, 0], # Bottom left
             [-0.03,  0.04, 0], # Bottom right
@@ -185,11 +188,6 @@ class Camera:
 
             lower_bound = (h_low, s_low, v_low)
             upper_bound = (h_up, s_up, v_up)
-            
-            # Normalization
-            
-            # gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-            # frame = cv.normalize(gray, None, 0, 255, cv.NORM_MINMAX) 
 
             # ==================== Applying mask ====================
             lab = cv.cvtColor(frame, cv.COLOR_BGR2LAB)
@@ -234,15 +232,18 @@ class Camera:
 
     def calculate_coords_rect_center(self, contours, frame, part_number):
         if not contours:
-            coords_history_len = len(self.coords_history)
-            if coords_history_len > 0 and self.no_coordinates < coords_history_len:
-                coordinates = self.coords_history[self.no_coordinates]
+            if self.coords_history_on:
+                coords_history_len = len(self.coords_history)
+                if coords_history_len > 0 and self.no_coordinates < coords_history_len:
+                    coordinates = self.coords_history[self.no_coordinates]
+                else:
+                    coordinates = np.array([0,0,0])
+                
+                self.no_coordinates += 1
+                return coordinates, 0, frame, 0
             else:
                 coordinates = np.array([0,0,0])
-            
-            self.no_coordinates += 1
-            return coordinates, 0, frame, 0
-
+                return coordinates, 0, frame, 0
         else:
             self.no_coordinates = 0
         
@@ -310,7 +311,6 @@ class Camera:
         cv.putText(frame, 'X', (50, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
         cv.circle(frame, (w // 2, h // 2), 50, (255, 255, 255), 2)
 
-        #cv.imshow('Frame', frame)
 
         area = rect_height * rect_width
         

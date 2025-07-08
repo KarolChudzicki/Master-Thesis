@@ -15,7 +15,7 @@ conveyor = conveyor_belt.conveyorBelt()
 
 
 class Gui:
-    def __init__(self, window, camera_instance, robot_instance):
+    def __init__(self, window, camera_instance, robot_instance, flag):
         self.window = window
         self.window.title("Camera GUI")
         self.window.geometry("700x900")
@@ -30,6 +30,8 @@ class Gui:
         self.camera = camera_instance
         self.robot = robot_instance
         
+        self.flag = flag
+        
     def main_window(self):
         
         # # Area for camera feed
@@ -41,16 +43,16 @@ class Gui:
         self.calibration_button.pack(side='top', padx=10, pady=10)
         
         # Start button - starts the system
-        self.start_button = tk.Button(self.window, text="Start", command=self.drop1, height=2, width=60)
+        self.start_button = tk.Button(self.window, text="Start", command=self.start, height=2, width=60)
         self.start_button.pack(side='top', padx=10, pady=10)
         
         # Stop button - halts the program
-        self.stop_button = tk.Button(self.window, text="Stop", command=self.quit, height=2, width=60)
+        self.stop_button = tk.Button(self.window, text="Stop", command=self.stop, height=2, width=60)
         self.stop_button.pack(side='top', padx=10, pady=10)
 
-        # Home button - homes the robot
-        self.home_button = tk.Button(self.window, text="Home", command=self.quit, height=2, width=60)
-        self.home_button.pack(side='top', padx=10, pady=10)
+        # Stop button - halts the program
+        self.close_button = tk.Button(self.window, text="Close app", command=self.quit, height=2, width=60)
+        self.close_button.pack(side='top', padx=10, pady=10)
         
         # Start conveyor
         self.start_conv_button = tk.Button(self.window, text="Start conveyor", command=self.start_conveyor, height=2, width=60)
@@ -113,15 +115,13 @@ class Gui:
             )
             
     def start(self):
-        pass
+        self.flag = True
+        print("Program started")
     
-    def home(self):
-        self.robot.home()
-        
-    def drop1(self):
-        self.robot.move_drop1(4)
-        
-        
+    def stop(self):
+        self.flag = False
+        print("Program halted")
+         
     def update_indicators(self, vector):
         if len(vector) == 6:
             for r in range(len(vector)):
@@ -261,7 +261,6 @@ class Gui:
             self.sliders[slider].set(data_from_json[slider])
 
     def quit(self):
-        #self.stop_conveyor()
         self.window.destroy()
         
     def start_conveyor(self):

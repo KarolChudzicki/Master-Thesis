@@ -56,7 +56,7 @@ class robotControl:
         self.PICK1_ABOVE = self.PICK1.copy()
         self.PICK1_ABOVE[0] += x_new
         self.PICK1_ABOVE[2] = pose_above
-        print(self.PICK1_ABOVE)
+    
 
 
         self.max_X = 0.3
