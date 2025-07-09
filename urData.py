@@ -64,6 +64,7 @@ class URData:
                     self.pose_updated_event.set()
                 else:
                     logging.warning("Incomplete data or no data in receiver")
+                    self.latest_pose = [None, None, None, None, None, None]
             except Exception as e:
                 logging.warning(f"Exception in receive loop: {e}")
                 self.running = False

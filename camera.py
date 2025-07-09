@@ -96,9 +96,9 @@ class Camera:
         self.prev_box_sorted = None
         self.last_coordinates = None
         self.no_coordinates = 0
-        self.max_coords_history_len = 3
+        self.max_coords_history_len = 2
         self.coords_history = []
-        self.coords_history_on = False
+        self.coords_history_on = True
         
         # Sizes of objects for solve PNP
         # Bottom casing

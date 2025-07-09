@@ -15,7 +15,7 @@ conveyor = conveyor_belt.conveyorBelt()
 
 
 class Gui:
-    def __init__(self, window, camera_instance, robot_instance, flag):
+    def __init__(self, window, camera_instance, robot_instance, flags):
         self.window = window
         self.window.title("Camera GUI")
         self.window.geometry("700x900")
@@ -30,7 +30,7 @@ class Gui:
         self.camera = camera_instance
         self.robot = robot_instance
         
-        self.flag = flag
+        self.flags = flags
         
     def main_window(self):
         
@@ -115,11 +115,11 @@ class Gui:
             )
             
     def start(self):
-        self.flag = True
+        self.flags['start'] = True
         print("Program started")
     
     def stop(self):
-        self.flag = False
+        self.flags['start'] = False
         print("Program halted")
          
     def update_indicators(self, vector):
