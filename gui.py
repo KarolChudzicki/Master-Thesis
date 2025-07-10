@@ -278,8 +278,6 @@ class Gui:
     def set_speed_conveyor250(self):
         threading.Thread(target=self._set_speed_conveyor_worker250, daemon=True).start()
     
-    def set_speed_conveyor300(self):
-        threading.Thread(target=self._set_speed_conveyor_worker300, daemon=True).start()
     
       
     def _start_conveyor_worker(self):
@@ -317,11 +315,6 @@ class Gui:
         except Exception as e:
             print(f"Error starting conveyor: {e}")
             
-    def _set_speed_conveyor_worker300(self):
-        try:
-            conveyor.setSpeed(300)
-        except Exception as e:
-            print(f"Error starting conveyor: {e}")
     
     def stop_conveyor(self):
         threading.Thread(target=self._stop_conveyor_worker, daemon=True).start()

@@ -219,3 +219,6 @@ class Gripper:
         crch = crc & 0xFF
         return crcl, crch, crc
 
+g = Gripper()
+g.activate()
+g.open_close(51, 100, 1)

@@ -38,21 +38,28 @@ class URRobot:
     def movel(self, position, acceleration, velocity, time_to)-> None:
         command = 'movel(' + 'p' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + ',' + str(time_to) +')\n'
         self.s1.send(command.encode('utf-8'))
-        time.sleep(time_to)
+        time.sleep(time_to + 0.1)
+        
+    def movec(self, position_via, position_to, acceleration, velocity, radius) -> None:
+        COMMAND = 'movec(' + 'p' + str(position_via) + ',' + 'p' + str(position_to) + ',' + str(acceleration) + ',' + str(velocity) + ',' + str(radius) + ')\n'
+        print(COMMAND.encode('utf-8'))
+        self.s1.send(COMMAND.encode('utf-8'))
+    
+    def forcemode(self, task_frame, selection_vector, wrench, type, limits) -> None:
+        COMMAND = 'force_mode(' + 'p' + str(task_frame) + ',' + str(selection_vector) + ',' + str(wrench) + ',' + str(type) + ',' + str(limits) + ')\n'
+        print(COMMAND.encode('utf-8'))
+        self.s1.send(COMMAND.encode('utf-8'))
+    
+    def endforcemode(self) -> None:
+        COMMAND = 'end_force_mode()\n'
+        print(COMMAND.encode('utf-8'))
+        self.s1.send(COMMAND.encode('utf-8'))
         
     def speed(self, jointSpeed)-> None:
         COMMAND = 'speed(' + str(jointSpeed) + ')\n'
         self.s1.send(COMMAND.encode('utf-8'))
 
-    # def rSleep(self, time)-> None:
-    #     COMMAND = 'sleep(' + str(time) + '.)\n'
-    #     self.s2.send(COMMAND.encode('utf-8'))
-        
-    # def is_steady(self):
-    #     COMMAND = 'is_steady()\n'
-    #     self.s2.send(COMMAND.encode('utf-8'))
-    #     response = self.s2.recv(1)
-    #     print(response)
+    
     
     
     def speedl(self, speed_vector, acceleration, duration) -> None:
@@ -63,3 +70,20 @@ class URRobot:
 
 
 
+# # Test
+# rob = URRobot()
+# p = [0.15, 0.766, 0.081, 3.1415, 0, 0]
+# # rob.movel(p, 0.1, 0.1, 3)
+# # time.sleep(2)
+
+# frame = [0,0,0,0,0,0]
+# vector = [0,0,1,0,0,0]
+# wrench = [0,0,-40,0,0,0]
+# type = 2
+# limits = [0.1,0.1,0.1,0.1,0.1,0.1]
+
+# rob.forcemode(frame, vector, wrench, type, limits)
+# time.sleep(3)
+# rob.endforcemode()
+
+# print("Finished")

@@ -34,10 +34,10 @@ class robotControl:
         # ========================== ROBOT POSITIONS ==========================
         # Tray positions
         pose_above = 0.2
-        shift_for_position2 = 0.066
-        shift_for_position3 = 0.063
+        shift_for_position2 = 0.0705
+        shift_for_position3 = 0.072
         
-        self.DROP1 = [-0.625, 0.035, 0.0667, 3.0383, -0.0147, -0.7923]
+        self.DROP1 = [-0.625, 0.0275, 0.067, 3.0383, -0.0147, -0.7923]
         self.DROP1_ABOVE = self.DROP1.copy()
         self.DROP1_ABOVE[2] = pose_above
 
@@ -54,27 +54,38 @@ class robotControl:
         self.DROP3_ABOVE[2] = pose_above
         
         # Pick and assembly
-        tilted = 25 #Tray for pickup is tilted 25 degrees
-        self.PICK1 = [-0.545, 0.0365, 0.0185, 3.0613, -0.0147, -0.7]
-        x_new = (pose_above - self.PICK1[2]) * math.tan(math.radians(tilted))
+        tilted = 26 #Tray for pickup is tilted 25 degrees
+        self.PICK1 = [-0.5414, 0.026, 0.025, 3.05, 0, -0.714]
+        x1_new = (pose_above - self.PICK1[2]) * math.tan(math.radians(tilted))
         self.PICK1_ABOVE = self.PICK1.copy()
-        self.PICK1_ABOVE[0] += x_new
+        self.PICK1_ABOVE[0] += x1_new
         self.PICK1_ABOVE[2] = pose_above
         
-        self.PICK2 = self.PICK1.copy()
-        self.PICK2[1] += shift_for_position2
-        self.PICK2_ABOVE = self.PICK2.copy()
+        self.PICK2 = [-0.537, 0.098, 0.0234, 3.05, 0, -0.714]
+        x2_new = (pose_above - self.PICK2[2]) * math.tan(math.radians(tilted))
+        self.PICK2_ABOVE = self.PICK1.copy()
+        self.PICK2_ABOVE[0] += x2_new
         self.PICK2_ABOVE[2] = pose_above
         
-        self.PICK3 = self.PICK2.copy()
-        self.PICK3[1] += shift_for_position3
-        self.PICK3_ABOVE = self.PICK3.copy()
-        self.PICK3_ABOVE[2] = pose_above
+        self.PICK3 = self.PICK1.copy()
+        self.PICK3[1] += shift_for_position3 + shift_for_position2
+        self.PICK3_ABOVE = self.PICK1_ABOVE.copy()
+        self.PICK3_ABOVE[1] += shift_for_position3 + shift_for_position2
         
         
-        self.ASSEMBLY1 = [0.0993, -0.747, 0.003, 2.22, 2.22, 0]
-        self.ASSEMBLY1_ABOVE = self.ASSEMBLY1.copy()
-        self.ASSEMBLY1_ABOVE[2] = pose_above
+        self.ASSEMBLY1_1 = [0.0993, -0.747, 0.003, 2.22, 2.22, 0]
+        self.ASSEMBLY_ABOVE = self.ASSEMBLY1_1.copy()
+        self.ASSEMBLY_ABOVE[2] = pose_above
+        
+        self.ASSEMBLY1_2 = self.ASSEMBLY1_1.copy()
+        self.ASSEMBLY1_2[2] += 0.015
+        
+        self.ASSEMBLY1_3 = self.ASSEMBLY1_1.copy()
+        self.ASSEMBLY1_3[2] += 0.003
+        
+        
+        self.INBETWEEN = self.PICK1_ABOVE.copy()
+        self.INBETWEEN[1] = self.ASSEMBLY1_1[1]
     
         # =====================================================================
 
@@ -98,10 +109,10 @@ class robotControl:
         self.derivative = 0
         self.last_time = None
         self.previous_error = None
-        self.Kp = 1.1
-        self.Ki = 0.5
-        self.integral_min = -0.1
-        self.Kd = 0.2
+        self.Kp = 1.6
+        self.Ki = 0.2
+        self.integral_min = -0.3
+        self.Kd = 0.05
         self.Kff = 0.0
         self.stablization_points = 0
         self.start_time_log = 0
@@ -209,7 +220,7 @@ class robotControl:
         self.start_time_log = time.time()
         # Max speed x so the robot can catch the part within 1 second
         #max_speed_x = initial_speed * 3
-        max_speed_x = initial_speed + (last_coords[0] + initial_speed * (time.time() - last_coords_time)) / 2
+        max_speed_x = initial_speed + (last_coords[0] + initial_speed * (time.time() - last_coords_time)) / 1.5
         #print("Max speed: ", max_speed_x, last_coords[0] + initial_speed * (time.time() - last_coords_time))
         
         # Max speed y (1 second to cover the delta y) but not less than 15mm/s
@@ -229,7 +240,7 @@ class robotControl:
         
         
         alpha = 1
-        delta_alpha = 0.01
+        delta_alpha = 0.02
         
 
         while True:
@@ -247,7 +258,7 @@ class robotControl:
             
             y_distance = coords[1]
             
-            if not np.array_equal(coords, [0, 0, 0]) and area > 20000:
+            if not np.array_equal(coords, [0, 0, 0]):
                 x_distance = alpha * x_distance_predicted + (1 - alpha) * coords[0]
                 y_distance = alpha * y_distance_predicted + (1 - alpha) * coords[1]
                 alpha -= delta_alpha
@@ -260,7 +271,7 @@ class robotControl:
                 if alpha >= 1:
                     alpha = 1
                 
-            #print("X and Y distances: ", x_distance, x_distance_predicted, y_distance, last_coords[1])
+            print("X and Y distances: ", x_distance, x_distance_predicted, y_distance, y_distance_predicted)
             #print(coords[1], y_distance_predicted)
             # Update X speed using a controler
             if x_speed_goal is False:
@@ -370,9 +381,9 @@ class robotControl:
     def descend_and_grab(self, velocity_vector, angle, part_number):
         x_speed = velocity_vector[0]
         max_speed_z = -0.2
-        max_speed_rz = 0.25
+        max_speed_rz = 0.2
         descend_height = -0.105
-        slowdown_angle = 0.5
+        slowdown_angle = 0.25
         
         rz_speed = 0.001
         z_speed = 0.0
@@ -433,7 +444,8 @@ class robotControl:
                 normalized_dist = np.clip(z_distance / z_half, 0.0, 1.0)
                     
                 #slow_factor = 0.5 * (1 - math.cos(math.pi * normalized_dist))
-                slow_factor = normalized_dist ** 0.5
+                #slow_factor = np.tanh(5 * normalized_dist)
+                slow_factor = normalized_dist ** 0.6
                 z_speed = z_speed_achieved * slow_factor
                     
                 z_speed = max(z_speed, max_speed_z)
@@ -458,15 +470,14 @@ class robotControl:
                 normalized_rotation = np.clip(rz_rotation / slowdown_angle, -1.0, 1.0)
                 #slow_factor_angle = 0.5 * (1 - math.cos(math.pi * abs(normalized_rotation))) * np.sign(normalized_rotation)
                 #slow_factor_angle = np.tanh(2 * normalized_rotation)
-                #slow_factor_angle = normalized_rotation ** 3
-                #slow_factor_angle = (abs(normalized_rotation) ** 0.8) * np.sign(normalized_rotation)
-
+            
+                
                 # r = abs(normalized_rotation)
-                # s = 6*r**5 - 15*r**4 + 10*r**3
+                # s = r**2 * (3 - 2*r)
                 # slow_factor_angle = s * np.sign(normalized_rotation)
                 
-                #slow_factor_angle = (abs(normalized_rotation) ** 0.6) * np.sign(normalized_rotation)
-                slow_factor_angle = np.tanh(4 * normalized_rotation)
+                slow_factor_angle = np.tanh(2 * normalized_rotation)
+                
                 
                 if abs(rz_rotation) < 0.02:
                     if smooth_points_rz_stop > 0:
@@ -477,9 +488,10 @@ class robotControl:
                     else:
                         rz_speed = 0
                 else:
-                    rz_speed_target = max_speed_rz * slow_factor_angle
-                    delta = rz_speed_target - rz_speed
-                    rz_speed += np.clip(delta, -ramp_rate_rz, ramp_rate_rz)
+                    # rz_speed_target = max_speed_rz * slow_factor_angle
+                    # delta = rz_speed_target - rz_speed
+                    # rz_speed += np.clip(delta, -ramp_rate_rz, ramp_rate_rz)
+                    rz_speed = max_speed_rz * slow_factor_angle
                     
                         
 
@@ -550,12 +562,12 @@ class robotControl:
         x_speed_start = velocity_vector[0]
         x_speed = x_speed_start
         z_speed = 0
-        z_speed_ramp = 0.01
+        z_speed_ramp = 0.005
         time_start = time.time()
         ascend_duration = 4
         z_max_speed_ascend = 0.5
         while time.time() - time_start <= ascend_duration:
-            x_speed *= 0.97
+            x_speed *= 0.98
             if x_speed > -1e-4:
                 x_speed = 0
             if (time.time() - time_start) < ascend_duration/2:
@@ -597,22 +609,57 @@ class robotControl:
     def move_and_drop(self, above, target):
         URRobot.movel(above, 0.5, 0.3, 3)
         URRobot.movel(target, 0.2, 0.2, 3)
-        gripper.open_close(85, 100, 1)
+        gripper.open_close(65, 1, 1)
         time.sleep(0.5)
         URRobot.movel(above, 0.2, 0.2, 3)
+        gripper.open_close(85, 100, 1)
 
 
     def assemble_product(self):
-        URRobot.movel(self.PICK1_ABOVE, 0.5, 0.2, 6)
-        URRobot.movel(self.PICK1, 0.5, 0.2, 6)
+        t_m = 3
+        # Part 1
+        URRobot.movel(self.PICK1_ABOVE, 0.5, 0.2, t_m)
+        gripper.open_close(60, 100, 1)
+        URRobot.movel(self.PICK1, 0.5, 0.2, t_m)
         gripper.open_close(50, 100, 1)
         time.sleep(1)
-        URRobot.movel(self.PICK1_ABOVE, 0.5, 0.2, 6)
-        URRobot.movel(self.ASSEMBLY1_ABOVE, 0.5, 0.2, 6)
-        URRobot.movel(self.ASSEMBLY1, 0.5, 0.2, 6)
+        URRobot.movel(self.PICK1_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_m)
+        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.ASSEMBLY1_1, 0.5, 0.2, t_m)
         gripper.open_close(85, 100, 1)
         time.sleep(0.5)
-        URRobot.movel(self.ASSEMBLY1_ABOVE, 0.5, 0.2, 6)
-        URRobot.movel(self.PICK1_ABOVE, 0.5, 0.2, 6)
+        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_m)
         
-    
+        # Part 2
+        URRobot.movel(self.PICK2_ABOVE, 0.5, 0.2, t_m)
+        gripper.open_close(50, 100, 1)
+        URRobot.movel(self.PICK2, 0.5, 0.2, t_m)
+        gripper.open_close(45, 100, 1)
+        time.sleep(1)
+        URRobot.movel(self.PICK2_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_m)
+        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.ASSEMBLY1_2, 0.5, 0.2, t_m)
+        gripper.open_close(85, 100, 1)
+        time.sleep(0.5)
+        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_m)
+        
+        
+        # Part 3
+        URRobot.movel(self.PICK3_ABOVE, 0.5, 0.2, t_m)
+        gripper.open_close(65, 100, 1)
+        URRobot.movel(self.PICK3, 0.5, 0.2, t_m)
+        gripper.open_close(55, 100, 1)
+        time.sleep(1)
+        URRobot.movel(self.PICK3_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_m)
+        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.ASSEMBLY1_3, 0.5, 0.2, t_m)
+        gripper.open_close(85, 100, 1)
+        time.sleep(0.5)
+        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_m)
+        URRobot.movel(self.PICK3_ABOVE, 0.5, 0.2, t_m)
