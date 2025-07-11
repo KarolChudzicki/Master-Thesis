@@ -83,6 +83,7 @@ class robotControl:
         
         self.ASSEMBLY1_3 = self.ASSEMBLY1_1.copy()
         self.ASSEMBLY1_3[2] += 0.003
+        self.ASSEMBLY1_3[1] += 0.002 # add 2 mm because of some alligment issues
         
         
         self.INBETWEEN = self.PICK1_ABOVE.copy()
@@ -393,21 +394,21 @@ class robotControl:
     def descend_and_grab(self, velocity_vector, angle, part_number):
         x_speed = velocity_vector[0]
         max_speed_z = -0.2
-        max_speed_rz = 0.2
+        max_speed_rz = 0.15
         descend_height = -0.105
         
         rz_speed = 0.001
         z_speed = 0.0
         
-        min_speed_z = -0.0001
+        ramp_rate_z = 0.001
+        ramp_rate_rz = 0.005
         
         # Total z distance:
         pose = URReceiver.get_pose()  # current z position
-        z_pose_top = pose[2]
+        z_pose = pose[2]
         
         # Calculate vertical distance above descend height, but never negative
-        z_half = (z_pose_top - descend_height) / 2
-        z_top = (z_pose_top - descend_height)
+        z_half = (z_pose - descend_height) / 2
         
         # To prevent jumps
         if angle > 0:
@@ -415,27 +416,24 @@ class robotControl:
         elif angle < 0:
             angle += 90
         target_angle_rad = math.radians(angle)
-        print(target_angle_rad, angle)
         
         last_rotation_time = time.time()
-        rz_speed = 0
+        rz_speed = 0.
         rz_pose = 0
         
         rz_acceleration_threshold = 0.3
-        rz_deceleration_threshold = 0.7
+        rz_deceleration_threshold = 0.5
         acceleration_angle = rz_acceleration_threshold * target_angle_rad
         deceleration_angle = rz_deceleration_threshold * target_angle_rad
-        min_speed_rz = 0.0075
-        
-        z_acceleration_threshold = 0.6
-        z_deceleration_threshold = 0.4
-        acceleration_distance = z_acceleration_threshold * (z_pose_top - descend_height)
-        deceleration_distance = z_deceleration_threshold * (z_pose_top - descend_height)
+        min_speed_rz = 0.003
         
         smooth_points_z_start = 5
         smooth_points_z_stop = 5
         
+        
         self.descend_start_time_log = time.time()
+        
+        rz_speed_prev = 0
         
         while True:
             pose = URReceiver.get_pose()  # current z position
@@ -450,31 +448,23 @@ class robotControl:
             # Calculate vertical distance above descend height, but never negative
             z_distance = max(z_pose - descend_height, 0)
 
-            # if z_distance > acceleration_distance:
-            #     progress_acceleration = np.clip(abs((z_top - z_distance)/(z_top - acceleration_distance)), 0.0, 1.0)
-            #     p = progress_acceleration
-            #     accel = np.tanh(p)
-            #     z_speed = max_speed_z * accel
-            #     z_speed = min(z_speed, min_speed_z)
-            #     print("A",progress_acceleration, z_distance, acceleration_distance, z_top, accel, z_speed)
             if z_distance > z_half:
                 if smooth_points_z_start > 0:
                     smooth_points_z_start -= 1
                     z_speed = -0.0001
                 else:
-                    z_speed -= 0.001
+                    z_speed -= ramp_rate_z
                     z_speed = max(z_speed, max_speed_z)
-            
+                    z_speed_achieved = z_speed
             elif z_distance > 0.002:
                 # Normalize distance in slowdown zone [0..1]
                 normalized_dist = np.clip(z_distance / z_half, 0.0, 1.0)
-                    
                 slow_factor = normalized_dist ** 0.6
-                z_speed = z_speed * slow_factor
+                z_speed = z_speed_achieved * slow_factor
                     
-                z_speed = max(z_speed, max_speed_z)    
+                z_speed = max(z_speed, max_speed_z)
+                    
 
-            
             z_speed = float(z_speed)
             
             # Rotation speed
@@ -490,46 +480,49 @@ class robotControl:
                 return None
             
             else: 
-                
-                
-                
-                # # Rz speed control if the angle is bigger than 5 deg
-                # if abs(angle) > 5:
-                #     # Rotation to target_angle
-                #     progress_acceleration = np.clip(abs(rz_pose/acceleration_angle), 0.0, 1.0)
-                #     if rz_pose != 0: 
-                #         progress_deceleration = np.clip(abs((rz_pose-deceleration_angle)/(target_angle_rad-deceleration_angle)), 0.0, 1.0)
+                # Rz speed control if the angle is bigger than 5 deg
+                if abs(angle) > 5:
+                    # Rotation to target_angle
+                    progress_acceleration = np.clip(abs(rz_pose/acceleration_angle), 0.0, 1.0)
+                    if rz_pose != 0: 
+                        progress_deceleration = np.clip(abs((rz_pose-deceleration_angle)/(target_angle_rad-deceleration_angle)), 0.0, 1.0)
 
-                #     sign_rz = -np.sign(target_angle_rad)
+                    sign_rz = -np.sign(target_angle_rad)
                     
                     
-                #     if abs(rz_pose) < abs(acceleration_angle):
-                #         p = progress_acceleration
-                        
-                #         #accel = p**2 * (3 - 2 * p)
-                #         #accel = p**3
-                #         #accel = 1 - np.cos(p * np.pi / 2)
-                #         accel = np.tanh(0.25 * p)
-                #         rz_speed = max_speed_rz * accel
-                #         rz_speed = max(rz_speed, min_speed_rz)
-                #         rz_speed *= sign_rz
-                #         #rz_speed = sign_rz * max_speed_rz * p
-                #     elif abs(rz_pose) > abs(deceleration_angle):
-                #         p = progress_deceleration
-                #         #decel = 1 - (p**2 * (3 - 2 * p))
-                #         decel = np.cos(p * np.pi / 2)
-                #         #decel = np.tanh(2*(1-p))
-                #         rz_speed = rz_speed * decel
-                #         if abs(rz_speed) < 1e-4:
-                #             rz_speed = 0
-                #     else:
-                #         rz_speed = rz_speed
-                # else:
-                #     rz_speed = 0
+                    if abs(rz_pose) < abs(acceleration_angle):
+                        p = progress_acceleration
+                        # FOR THESIS
+                        # DESCRIBE THOSE METHODS WITH PLOTS
+                        # scale = 3 will give you somewhat ok performance, but sometimes it jerks
+                        # Slow start but jerks a bit after a while
+                        # Explain in thesis, works quite well for bigger angles
+                        # Scaling
+                        #angle_norm = np.clip(abs(target_angle_rad) / np.radians(45), 0, 1.0)
+                        #scale = 5 * angle_norm
+                        #accel = np.tanh(scale*p)
+                        # 
+                        scale = 4
+                        accel = 1 / (1 + np.exp(-scale*(p - 0.5)))
+                        #accel = np.sin(p * (np.pi / 2))
+                        rz_speed = max_speed_rz * accel
+                        rz_speed = max(rz_speed, min_speed_rz)
+                        rz_speed *= sign_rz
+                    elif abs(rz_pose) > abs(deceleration_angle):
+                        p = progress_deceleration
+                        decel = np.cos(p * np.pi / 2)
+                        rz_speed = rz_speed * decel
+                        if abs(rz_speed) < 1e-4:
+                            rz_speed = 0
+                    else:
+                        rz_speed = rz_speed
+                else:
+                    rz_speed = 0
                 
-                # rz_speed = float(rz_speed)
+                rz_speed = float(rz_speed)
+                    
                         
-                rz_speed = 0
+
                 
 
                 # If within 2mm from target height, stop
@@ -557,6 +550,7 @@ class robotControl:
                         
                 
                 
+                rz_speed = float(rz_speed)
                 velocity_vector = [x_speed, 0, z_speed, 0, 0, rz_speed]
                 current_time = time.time()
                 
@@ -567,12 +561,15 @@ class robotControl:
                     "z_speed": z_speed,
                     "rz_speed": rz_speed,
                     "z_target": descend_height,
-                    "rz_target": target_angle_rad
+                    "rz_target": target_angle_rad,
+                    "delta_rz_speed": rz_speed - rz_speed_prev
                 })
                 
-                #print("Vel vector descending: ",velocity_vector)
-                URRobot.speedl(velocity_vector, 0.2, 0.5)
+                rz_speed_prev = rz_speed
                 
+                print("Vel vector descending: ",velocity_vector)
+                URRobot.speedl(velocity_vector, 0.2, 0.5)
+        
 
 
            
@@ -651,50 +648,51 @@ class robotControl:
 
 
     def assemble_product(self):
-        t_m = 3
+        t_l = 7
+        t_s = 4
         # Part 1
-        URRobot.movel(self.PICK1_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.PICK1_ABOVE, 0.5, 0.2, t_s)
         gripper.open_close(60, 100, 1)
-        URRobot.movel(self.PICK1, 0.5, 0.2, t_m)
+        URRobot.movel(self.PICK1, 0.5, 0.2, t_s)
         gripper.open_close(50, 100, 1)
         time.sleep(1)
-        URRobot.movel(self.PICK1_ABOVE, 0.5, 0.2, t_m)
-        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_m)
-        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_m)
-        URRobot.movel(self.ASSEMBLY1_1, 0.5, 0.2, t_m)
+        URRobot.movel(self.PICK1_ABOVE, 0.5, 0.2, t_s)
+        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_l)
+        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_l)
+        URRobot.movel(self.ASSEMBLY1_1, 0.5, 0.2, t_s)
         gripper.open_close(85, 100, 1)
         time.sleep(0.5)
-        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_m)
-        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_m)
+        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_l)
+        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_l)
         
         # Part 2
-        URRobot.movel(self.PICK2_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.PICK2_ABOVE, 0.5, 0.2, t_l)
         gripper.open_close(50, 100, 1)
-        URRobot.movel(self.PICK2, 0.5, 0.2, t_m)
+        URRobot.movel(self.PICK2, 0.5, 0.2, t_s)
         gripper.open_close(45, 100, 1)
         time.sleep(1)
-        URRobot.movel(self.PICK2_ABOVE, 0.5, 0.2, t_m)
-        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_m)
-        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_m)
-        URRobot.movel(self.ASSEMBLY1_2, 0.5, 0.2, t_m)
+        URRobot.movel(self.PICK2_ABOVE, 0.5, 0.2, t_s)
+        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_l)
+        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_l)
+        URRobot.movel(self.ASSEMBLY1_2, 0.5, 0.2, t_s)
         gripper.open_close(85, 100, 1)
         time.sleep(0.5)
-        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_m)
-        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_m)
+        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_l)
+        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_l)
         
         
         # Part 3
-        URRobot.movel(self.PICK3_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.PICK3_ABOVE, 0.5, 0.2, t_l)
         gripper.open_close(65, 100, 1)
-        URRobot.movel(self.PICK3, 0.5, 0.2, t_m)
+        URRobot.movel(self.PICK3, 0.5, 0.2, t_s)
         gripper.open_close(55, 100, 1)
         time.sleep(1)
-        URRobot.movel(self.PICK3_ABOVE, 0.5, 0.2, t_m)
-        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_m)
-        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_m)
-        URRobot.movel(self.ASSEMBLY1_3, 0.5, 0.2, t_m)
+        URRobot.movel(self.PICK3_ABOVE, 0.5, 0.2, t_s)
+        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_l)
+        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_l)
+        URRobot.movel(self.ASSEMBLY1_3, 0.5, 0.2, t_s)
         gripper.open_close(85, 100, 1)
         time.sleep(0.5)
-        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_m)
-        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_m)
-        URRobot.movel(self.PICK3_ABOVE, 0.5, 0.2, t_m)
+        URRobot.movel(self.ASSEMBLY_ABOVE, 0.5, 0.2, t_s)
+        URRobot.movel(self.INBETWEEN, 0.5, 0.2, t_l)
+        URRobot.movel(self.PICK3_ABOVE, 0.5, 0.2, t_l)
