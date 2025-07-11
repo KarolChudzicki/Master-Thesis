@@ -54,7 +54,7 @@ class robotControl:
         self.DROP3_ABOVE[2] = pose_above
         
         # Pick and assembly
-        tilted = 26 #Tray for pickup is tilted 25 degrees
+        tilted = 30 #Tray for pickup is tilted 25 degrees
         self.PICK1 = [-0.5414, 0.026, 0.025, 3.05, 0, -0.714]
         x1_new = (pose_above - self.PICK1[2]) * math.tan(math.radians(tilted))
         self.PICK1_ABOVE = self.PICK1.copy()
@@ -65,6 +65,7 @@ class robotControl:
         x2_new = (pose_above - self.PICK2[2]) * math.tan(math.radians(tilted))
         self.PICK2_ABOVE = self.PICK1.copy()
         self.PICK2_ABOVE[0] += x2_new
+        self.PICK2_ABOVE[1] += shift_for_position2
         self.PICK2_ABOVE[2] = pose_above
         
         self.PICK3 = self.PICK1.copy()
@@ -124,6 +125,8 @@ class robotControl:
         self.follow_part_start_time_log = 0
         self.descend_log = []
         self.descend_start_time_log = 0
+        self.xy_log = []
+        self.xy_start_time_log = 0
 
     def save_log_csv(self, log_data, folder, name):
         # Create the folder if it doesn't exist
@@ -242,6 +245,7 @@ class robotControl:
         alpha = 1
         delta_alpha = 0.02
         
+        self.xy_start_time_log = time.time()
 
         while True:
             pose = URReceiver.get_pose()  # Current robot pose (XYZ + orientation)
@@ -258,7 +262,7 @@ class robotControl:
             
             y_distance = coords[1]
             
-            if not np.array_equal(coords, [0, 0, 0]):
+            if not np.array_equal(coords, [0, 0, 0]) and area > 20000:
                 x_distance = alpha * x_distance_predicted + (1 - alpha) * coords[0]
                 y_distance = alpha * y_distance_predicted + (1 - alpha) * coords[1]
                 alpha -= delta_alpha
@@ -306,7 +310,15 @@ class robotControl:
             print("Vel vector chasing: ",velocity_vector, y_distance)
             URRobot.speedl(velocity_vector, 0.3, 0.5)
             
+            self.xy_log.append({
+                "time": time.time() - self.xy_start_time_log,
+                "x_speed": x_speed,
+                "y_speed": y_speed
+            })
+            
             if x_speed_goal and y_speed_goal:
+                self.save_log_csv(log_data=self.xy_log, folder = "Plots/follow", name = "xy")
+                self.xy_log = []
                 break
         
         return velocity_vector
@@ -383,20 +395,19 @@ class robotControl:
         max_speed_z = -0.2
         max_speed_rz = 0.2
         descend_height = -0.105
-        slowdown_angle = 0.25
         
         rz_speed = 0.001
         z_speed = 0.0
         
-        ramp_rate_z = 0.001
-        ramp_rate_rz = 0.005
+        min_speed_z = -0.0001
         
         # Total z distance:
         pose = URReceiver.get_pose()  # current z position
-        z_pose = pose[2]
+        z_pose_top = pose[2]
         
         # Calculate vertical distance above descend height, but never negative
-        z_half = (z_pose - descend_height) / 2
+        z_half = (z_pose_top - descend_height) / 2
+        z_top = (z_pose_top - descend_height)
         
         # To prevent jumps
         if angle > 0:
@@ -404,17 +415,25 @@ class robotControl:
         elif angle < 0:
             angle += 90
         target_angle_rad = math.radians(angle)
+        print(target_angle_rad, angle)
         
         last_rotation_time = time.time()
-        rz_speed = 0.
+        rz_speed = 0
         rz_pose = 0
+        
+        rz_acceleration_threshold = 0.3
+        rz_deceleration_threshold = 0.7
+        acceleration_angle = rz_acceleration_threshold * target_angle_rad
+        deceleration_angle = rz_deceleration_threshold * target_angle_rad
+        min_speed_rz = 0.0075
+        
+        z_acceleration_threshold = 0.6
+        z_deceleration_threshold = 0.4
+        acceleration_distance = z_acceleration_threshold * (z_pose_top - descend_height)
+        deceleration_distance = z_deceleration_threshold * (z_pose_top - descend_height)
         
         smooth_points_z_start = 5
         smooth_points_z_stop = 5
-        smooth_points_rz_start = 5
-        smooth_points_rz_stop = 5
-        
-        alpha_rz = 0
         
         self.descend_start_time_log = time.time()
         
@@ -431,26 +450,31 @@ class robotControl:
             # Calculate vertical distance above descend height, but never negative
             z_distance = max(z_pose - descend_height, 0)
 
+            # if z_distance > acceleration_distance:
+            #     progress_acceleration = np.clip(abs((z_top - z_distance)/(z_top - acceleration_distance)), 0.0, 1.0)
+            #     p = progress_acceleration
+            #     accel = np.tanh(p)
+            #     z_speed = max_speed_z * accel
+            #     z_speed = min(z_speed, min_speed_z)
+            #     print("A",progress_acceleration, z_distance, acceleration_distance, z_top, accel, z_speed)
             if z_distance > z_half:
                 if smooth_points_z_start > 0:
                     smooth_points_z_start -= 1
                     z_speed = -0.0001
                 else:
-                    z_speed -= ramp_rate_z
+                    z_speed -= 0.001
                     z_speed = max(z_speed, max_speed_z)
-                    z_speed_achieved = z_speed
+            
             elif z_distance > 0.002:
                 # Normalize distance in slowdown zone [0..1]
                 normalized_dist = np.clip(z_distance / z_half, 0.0, 1.0)
                     
-                #slow_factor = 0.5 * (1 - math.cos(math.pi * normalized_dist))
-                #slow_factor = np.tanh(5 * normalized_dist)
                 slow_factor = normalized_dist ** 0.6
-                z_speed = z_speed_achieved * slow_factor
+                z_speed = z_speed * slow_factor
                     
-                z_speed = max(z_speed, max_speed_z)
-                    
+                z_speed = max(z_speed, max_speed_z)    
 
+            
             z_speed = float(z_speed)
             
             # Rotation speed
@@ -466,35 +490,46 @@ class robotControl:
                 return None
             
             else: 
-                rz_rotation = rz_pose - target_angle_rad
-                normalized_rotation = np.clip(rz_rotation / slowdown_angle, -1.0, 1.0)
-                #slow_factor_angle = 0.5 * (1 - math.cos(math.pi * abs(normalized_rotation))) * np.sign(normalized_rotation)
-                #slow_factor_angle = np.tanh(2 * normalized_rotation)
-            
-                
-                # r = abs(normalized_rotation)
-                # s = r**2 * (3 - 2*r)
-                # slow_factor_angle = s * np.sign(normalized_rotation)
-                
-                slow_factor_angle = np.tanh(2 * normalized_rotation)
                 
                 
-                if abs(rz_rotation) < 0.02:
-                    if smooth_points_rz_stop > 0:
-                        smooth_points_rz_stop -= 1
-                        rz_speed *= 0.5
-                        if abs(rz_speed) < 1e-4:
-                            rz_speed = 0.0001 * np.sign(normalized_rotation)
-                    else:
-                        rz_speed = 0
-                else:
-                    # rz_speed_target = max_speed_rz * slow_factor_angle
-                    # delta = rz_speed_target - rz_speed
-                    # rz_speed += np.clip(delta, -ramp_rate_rz, ramp_rate_rz)
-                    rz_speed = max_speed_rz * slow_factor_angle
-                    
-                        
+                
+                # # Rz speed control if the angle is bigger than 5 deg
+                # if abs(angle) > 5:
+                #     # Rotation to target_angle
+                #     progress_acceleration = np.clip(abs(rz_pose/acceleration_angle), 0.0, 1.0)
+                #     if rz_pose != 0: 
+                #         progress_deceleration = np.clip(abs((rz_pose-deceleration_angle)/(target_angle_rad-deceleration_angle)), 0.0, 1.0)
 
+                #     sign_rz = -np.sign(target_angle_rad)
+                    
+                    
+                #     if abs(rz_pose) < abs(acceleration_angle):
+                #         p = progress_acceleration
+                        
+                #         #accel = p**2 * (3 - 2 * p)
+                #         #accel = p**3
+                #         #accel = 1 - np.cos(p * np.pi / 2)
+                #         accel = np.tanh(0.25 * p)
+                #         rz_speed = max_speed_rz * accel
+                #         rz_speed = max(rz_speed, min_speed_rz)
+                #         rz_speed *= sign_rz
+                #         #rz_speed = sign_rz * max_speed_rz * p
+                #     elif abs(rz_pose) > abs(deceleration_angle):
+                #         p = progress_deceleration
+                #         #decel = 1 - (p**2 * (3 - 2 * p))
+                #         decel = np.cos(p * np.pi / 2)
+                #         #decel = np.tanh(2*(1-p))
+                #         rz_speed = rz_speed * decel
+                #         if abs(rz_speed) < 1e-4:
+                #             rz_speed = 0
+                #     else:
+                #         rz_speed = rz_speed
+                # else:
+                #     rz_speed = 0
+                
+                # rz_speed = float(rz_speed)
+                        
+                rz_speed = 0
                 
 
                 # If within 2mm from target height, stop
@@ -522,7 +557,6 @@ class robotControl:
                         
                 
                 
-                rz_speed = float(rz_speed)
                 velocity_vector = [x_speed, 0, z_speed, 0, 0, rz_speed]
                 current_time = time.time()
                 
@@ -530,11 +564,13 @@ class robotControl:
                     "time": current_time - self.descend_start_time_log,
                     "z_pos": z_pose,
                     "rotation": rz_pose,
+                    "z_speed": z_speed,
+                    "rz_speed": rz_speed,
                     "z_target": descend_height,
                     "rz_target": target_angle_rad
                 })
                 
-                print("Vel vector descending: ",velocity_vector)
+                #print("Vel vector descending: ",velocity_vector)
                 URRobot.speedl(velocity_vector, 0.2, 0.5)
                 
 
@@ -579,7 +615,6 @@ class robotControl:
                     z_speed = 0
             velocity_vector[0] = x_speed
             velocity_vector[2] = z_speed
-            print(velocity_vector)
             URRobot.speedl(velocity_vector, 0.1, 0.5)
         
         
