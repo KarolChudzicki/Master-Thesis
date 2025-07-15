@@ -111,7 +111,7 @@ class robotControl:
         self.derivative = 0
         self.last_time = None
         self.previous_error = None
-        self.Kp = 1.6
+        self.Kp = 1.7
         self.Ki = 0.2
         self.integral_min = -0.3
         self.Kd = 0.05
@@ -309,7 +309,7 @@ class robotControl:
 
             velocity_vector = [x_speed, y_speed, 0, 0, 0, 0]
             print("Vel vector chasing: ",velocity_vector, y_distance)
-            URRobot.speedl(velocity_vector, 0.3, 0.5)
+            URRobot.speedl(velocity_vector, 0.5, 0.5)
             
             self.xy_log.append({
                 "time": time.time() - self.xy_start_time_log,
@@ -394,13 +394,13 @@ class robotControl:
     def descend_and_grab(self, velocity_vector, angle, part_number):
         x_speed = velocity_vector[0]
         max_speed_z = -0.2
-        max_speed_rz = 0.15
+        max_speed_rz = 0.4
         descend_height = -0.105
         
         rz_speed = 0.001
         z_speed = 0.0
         
-        ramp_rate_z = 0.001
+        ramp_rate_z = 0.0015
         ramp_rate_rz = 0.005
         
         # Total z distance:
@@ -421,11 +421,11 @@ class robotControl:
         rz_speed = 0.
         rz_pose = 0
         
-        rz_acceleration_threshold = 0.3
-        rz_deceleration_threshold = 0.5
+        rz_acceleration_threshold = 0.4
+        rz_deceleration_threshold = 0.6
         acceleration_angle = rz_acceleration_threshold * target_angle_rad
         deceleration_angle = rz_deceleration_threshold * target_angle_rad
-        min_speed_rz = 0.003
+        min_speed_rz = 0.001
         
         smooth_points_z_start = 5
         smooth_points_z_stop = 5
@@ -502,9 +502,12 @@ class robotControl:
                         #scale = 5 * angle_norm
                         #accel = np.tanh(scale*p)
                         # 
-                        scale = 4
-                        accel = 1 / (1 + np.exp(-scale*(p - 0.5)))
+                        # scale = 4
+                        # accel = 1 / (1 + np.exp(-scale*(p - 0.5)))
                         #accel = np.sin(p * (np.pi / 2))
+                        
+                        #accel = 1 - (1-p)**3
+                        accel = 1 - np.exp(-5 * p)
                         rz_speed = max_speed_rz * accel
                         rz_speed = max(rz_speed, min_speed_rz)
                         rz_speed *= sign_rz
@@ -536,7 +539,7 @@ class robotControl:
                             z_last_speed = z_speed
                     else:
                         velocity_vector[2] = 0
-                        URRobot.speedl(velocity_vector, 0.1, 5)
+                        URRobot.speedl(velocity_vector, 1, 5)
                         if part_number == 0:
                             gripper.open_close(50, 100, 1)
                         elif part_number == 1:
@@ -568,7 +571,7 @@ class robotControl:
                 rz_speed_prev = rz_speed
                 
                 print("Vel vector descending: ",velocity_vector)
-                URRobot.speedl(velocity_vector, 0.2, 0.5)
+                URRobot.speedl(velocity_vector, 1, 0.5)
         
 
 
@@ -597,8 +600,8 @@ class robotControl:
         z_speed = 0
         z_speed_ramp = 0.005
         time_start = time.time()
-        ascend_duration = 4
-        z_max_speed_ascend = 0.5
+        ascend_duration = 2
+        z_max_speed_ascend = 0.25
         while time.time() - time_start <= ascend_duration:
             x_speed *= 0.98
             if x_speed > -1e-4:
@@ -612,7 +615,7 @@ class robotControl:
                     z_speed = 0
             velocity_vector[0] = x_speed
             velocity_vector[2] = z_speed
-            URRobot.speedl(velocity_vector, 0.1, 0.5)
+            URRobot.speedl(velocity_vector, 0.5, 0.5)
         
         
         
@@ -648,8 +651,8 @@ class robotControl:
 
 
     def assemble_product(self):
-        t_l = 7
-        t_s = 4
+        t_l = 4
+        t_s = 2
         # Part 1
         URRobot.movel(self.PICK1_ABOVE, 0.5, 0.2, t_s)
         gripper.open_close(60, 100, 1)
