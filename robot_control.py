@@ -394,7 +394,6 @@ class robotControl:
     def descend_and_grab(self, velocity_vector, angle, part_number):
         x_speed = velocity_vector[0]
         max_speed_z = -0.2
-        max_speed_rz = 0.4
         descend_height = -0.105
         
         rz_speed = 0.001
@@ -415,14 +414,24 @@ class robotControl:
             angle -= 90
         elif angle < 0:
             angle += 90
+        
+        min_speed_rz = 0.1
+        max_speed_rz = 0.75
+        min_angle = 5    
+        max_angle = 90
+        angle_clamped = np.clip(abs(angle), min_angle, max_angle)
+        
+        top_speed = min_speed_rz + (angle_clamped - min_angle) / (max_angle - min_angle) * (max_speed_rz - min_speed_rz)
+        print("Top speed", top_speed)
+        
         target_angle_rad = math.radians(angle)
         
         last_rotation_time = time.time()
-        rz_speed = 0.
+        rz_speed = 0
         rz_pose = 0
         
-        rz_acceleration_threshold = 0.4
-        rz_deceleration_threshold = 0.6
+        rz_acceleration_threshold = 0.2
+        rz_deceleration_threshold = 0.95
         acceleration_angle = rz_acceleration_threshold * target_angle_rad
         deceleration_angle = rz_deceleration_threshold * target_angle_rad
         min_speed_rz = 0.001
@@ -459,7 +468,7 @@ class robotControl:
             elif z_distance > 0.002:
                 # Normalize distance in slowdown zone [0..1]
                 normalized_dist = np.clip(z_distance / z_half, 0.0, 1.0)
-                slow_factor = normalized_dist ** 0.6
+                slow_factor = normalized_dist ** 0.5
                 z_speed = z_speed_achieved * slow_factor
                     
                 z_speed = max(z_speed, max_speed_z)
@@ -481,7 +490,7 @@ class robotControl:
             
             else: 
                 # Rz speed control if the angle is bigger than 5 deg
-                if abs(angle) > 5:
+                if abs(angle) > min_angle:
                     # Rotation to target_angle
                     progress_acceleration = np.clip(abs(rz_pose/acceleration_angle), 0.0, 1.0)
                     if rz_pose != 0: 
@@ -492,28 +501,27 @@ class robotControl:
                     
                     if abs(rz_pose) < abs(acceleration_angle):
                         p = progress_acceleration
-                        # FOR THESIS
-                        # DESCRIBE THOSE METHODS WITH PLOTS
-                        # scale = 3 will give you somewhat ok performance, but sometimes it jerks
-                        # Slow start but jerks a bit after a while
-                        # Explain in thesis, works quite well for bigger angles
-                        # Scaling
-                        #angle_norm = np.clip(abs(target_angle_rad) / np.radians(45), 0, 1.0)
-                        #scale = 5 * angle_norm
-                        #accel = np.tanh(scale*p)
-                        # 
-                        # scale = 4
-                        # accel = 1 / (1 + np.exp(-scale*(p - 0.5)))
-                        #accel = np.sin(p * (np.pi / 2))
                         
-                        #accel = 1 - (1-p)**3
-                        accel = 1 - np.exp(-5 * p)
-                        rz_speed = max_speed_rz * accel
+                        # Ease-Out Cubic
+                        accel = 1 - (1-p)**3
+                        # Exponential Ramp-Up
+                        #accel = 1 - np.exp(-5 * p)
+                        # Smoothstep
+                        #accel = 3 * p**2 - 2 * p**3
+                        
+                        rz_speed = top_speed * accel
                         rz_speed = max(rz_speed, min_speed_rz)
                         rz_speed *= sign_rz
                     elif abs(rz_pose) > abs(deceleration_angle):
                         p = progress_deceleration
-                        decel = np.cos(p * np.pi / 2)
+                        print("Decel:", p)
+                        # Ease-In Cubic
+                        #decel = (1-p)**3
+                        # Cosine
+                        #decel = np.cos(p * np.pi / 2)
+                        # Smoothstep inverted
+                        #decel = 1 - (3 * p**2 - 2 * p**3)
+                        decel = 1 - np.exp(-4 * p)
                         rz_speed = rz_speed * decel
                         if abs(rz_speed) < 1e-4:
                             rz_speed = 0
@@ -539,7 +547,7 @@ class robotControl:
                             z_last_speed = z_speed
                     else:
                         velocity_vector[2] = 0
-                        URRobot.speedl(velocity_vector, 1, 5)
+                        URRobot.speedl(velocity_vector, 2, 5)
                         if part_number == 0:
                             gripper.open_close(50, 100, 1)
                         elif part_number == 1:
@@ -571,7 +579,7 @@ class robotControl:
                 rz_speed_prev = rz_speed
                 
                 print("Vel vector descending: ",velocity_vector)
-                URRobot.speedl(velocity_vector, 1, 0.5)
+                URRobot.speedl(velocity_vector, 2, 0.5)
         
 
 
