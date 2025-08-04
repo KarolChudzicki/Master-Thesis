@@ -269,8 +269,6 @@ class Camera:
             rect_width, rect_height = rect_height, rect_width
             angle_rect -= 90
 
-        image_points = np.array(box_sorted_smoothed, dtype=np.float32)
-
         # 3D reconstruction
         if part_number == 0: known_Z = 0.3 - 0.003
         elif part_number == 1: known_Z = 0.3 - 0.002
