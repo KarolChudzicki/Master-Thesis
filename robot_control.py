@@ -272,16 +272,15 @@ class robotControl:
             
             if not np.array_equal(coords, [0, 0, 0]) and area > 20000:
                 alpha_progress -= delta_alpha
-                alpha = 1 - (np.cos(alpha_progress * np.pi) + 1) / 2
                 if alpha_progress <= 0:
                     alpha_progress = 0
             else:
                 alpha_progress += delta_alpha
-                alpha = 1 - (np.cos(alpha_progress * np.pi) + 1) / 2
                 if alpha_progress >= 1:
                     alpha_progress = 1
             
-            
+            #alpha = 1 - (np.cos(alpha_progress * np.pi) + 1) / 2
+            alpha = alpha_progress**2 * (3 - 2 * alpha_progress)
             x_distance = alpha * x_distance_predicted + (1 - alpha) * coords[0]
             y_distance = alpha * y_distance_predicted + (1 - alpha) * coords[1]    
             
@@ -442,7 +441,7 @@ class robotControl:
         rz_pose = 0
         
         rz_acceleration_threshold = 0.2
-        rz_deceleration_threshold = 0.95
+        rz_deceleration_threshold = 0.9
         acceleration_angle = rz_acceleration_threshold * target_angle_rad
         deceleration_angle = rz_deceleration_threshold * target_angle_rad
         min_speed_rz = 0.001
@@ -504,9 +503,8 @@ class robotControl:
                 if abs(angle) > min_angle:
                     # Rotation to target_angle
                     progress_acceleration = np.clip(abs(rz_pose/acceleration_angle), 0.0, 1.0)
-                    if rz_pose != 0: 
-                        progress_deceleration = np.clip(abs((rz_pose-deceleration_angle)/(target_angle_rad-deceleration_angle)), 0.0, 1.0)
-
+                    progress_deceleration = np.clip(abs((rz_pose-deceleration_angle)/(target_angle_rad-deceleration_angle)), 0.0, 1.0)
+                    print(progress_deceleration)
                     sign_rz = -np.sign(target_angle_rad)
                     
                     
@@ -525,14 +523,14 @@ class robotControl:
                         rz_speed *= sign_rz
                     elif abs(rz_pose) > abs(deceleration_angle):
                         p = progress_deceleration
-                        print("Decel:", p)
                         # Ease-In Cubic
                         #decel = (1-p)**3
                         # Cosine
                         #decel = np.cos(p * np.pi / 2)
                         # Smoothstep inverted
                         #decel = 1 - (3 * p**2 - 2 * p**3)
-                        decel = 1 - np.exp(-4 * p)
+                        decel = (np.cos(p * np.pi) + 1) / 2
+                        #decel = 1 - np.exp(-4 * p)
                         rz_speed = rz_speed * decel
                         if abs(rz_speed) < 1e-4:
                             rz_speed = 0
