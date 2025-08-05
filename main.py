@@ -34,7 +34,8 @@ def robot_main_loop():
         if avg_velocity is not None:
             avg_formatted = f"{avg_velocity:.7f}".replace('.', ',')
             print("Avg velocity: ", avg_formatted)
-            
+        
+        #avg_velocity = None    
         if avg_velocity is not None:
             
             # Guide the robot to the part
@@ -56,7 +57,7 @@ def robot_main_loop():
 root = tk.Tk()
 app = Gui(root, camera_instance=camera, robot_instance=robotControl, flags = flags)
 threading.Thread(target=image_show, daemon=True).start()
-#threading.Thread(target=robot_main_loop, daemon=True).start()
+threading.Thread(target=robot_main_loop, daemon=True).start()
 
 
 # Optional: initial indicator state

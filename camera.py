@@ -307,7 +307,7 @@ class Camera:
         cv.putText(frame, 'Y', (15, 60), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
         cv.arrowedLine(frame, (10, 10), (60, 10), (255, 0, 255), 2)
         cv.putText(frame, 'X', (50, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
-        cv.circle(frame, (w // 2, h // 2), 50, (255, 255, 255), 2)
+        cv.circle(frame, (w // 2, h // 2), 5, (255, 255, 255), 2)
 
 
         area = rect_height * rect_width

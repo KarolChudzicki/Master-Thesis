@@ -17,7 +17,7 @@ conveyor = conveyor_belt.conveyorBelt()
 class Gui:
     def __init__(self, window, camera_instance, robot_instance, flags):
         self.window = window
-        self.window.title("Camera GUI")
+        self.window.title("System GUI")
         self.window.geometry("700x900")
         self.window.resizable(False, False)
         self.window.configure(bg="white")  # Helps see layout during testing
