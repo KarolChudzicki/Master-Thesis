@@ -113,7 +113,7 @@ class robotControl:
         self.previous_error = None
         self.Kp = 1.7
         self.Ki = 0.2
-        self.integral_min = -0.3
+        self.integral_min = -0.4
         self.Kd = 0.05
         self.Kff = 0.0
         self.stablization_points = 0
@@ -165,7 +165,7 @@ class robotControl:
         coords, area, _, _ = self.camera.capture_and_get_coords_center(part_number)
         
         min_readings = 7
-        
+        timeout = time.time()
         while incorrect_readings < max_incorrect_readings:
             coords, area, _, _ = self.camera.capture_and_get_coords_center(part_number)
             if area > parts_area[part_number]:
@@ -173,7 +173,13 @@ class robotControl:
                 self.coords_array_y.append(coords[1])
                 self.time_stamps.append(time.time())
             else:
-                incorrect_readings += 1
+                # Check if there even was a valid reading
+                if len(self.time_stamps) > 0:
+                    incorrect_readings += 1
+            
+            if time.time() - timeout > 10:
+                print("Reading loop timeout")
+                break
         
         array_length = len(self.coords_array_x)
         if array_length >= min_readings:
@@ -244,7 +250,8 @@ class robotControl:
         
         
         alpha = 1
-        delta_alpha = 0.02
+        delta_alpha = 0.1
+        alpha_progress = 1
         
         self.xy_start_time_log = time.time()
 
@@ -264,23 +271,26 @@ class robotControl:
             y_distance = coords[1]
             
             if not np.array_equal(coords, [0, 0, 0]) and area > 20000:
-                x_distance = alpha * x_distance_predicted + (1 - alpha) * coords[0]
-                y_distance = alpha * y_distance_predicted + (1 - alpha) * coords[1]
-                alpha -= delta_alpha
-                if alpha <= 0:
-                    alpha = 0
+                alpha_progress -= delta_alpha
+                alpha = 1 - (np.cos(alpha_progress * np.pi) + 1) / 2
+                if alpha_progress <= 0:
+                    alpha_progress = 0
             else:
-                x_distance = alpha * x_distance_predicted + (1 - alpha) * coords[0]
-                y_distance = alpha * y_distance_predicted + (1 - alpha) * coords[1]
-                alpha += delta_alpha
-                if alpha >= 1:
-                    alpha = 1
-                
-            print("X and Y distances: ", x_distance, x_distance_predicted, y_distance, y_distance_predicted)
+                alpha_progress += delta_alpha
+                alpha = 1 - (np.cos(alpha_progress * np.pi) + 1) / 2
+                if alpha_progress >= 1:
+                    alpha_progress = 1
+            
+            
+            x_distance = alpha * x_distance_predicted + (1 - alpha) * coords[0]
+            y_distance = alpha * y_distance_predicted + (1 - alpha) * coords[1]    
+            
+            
+            #print("X and Y distances: ", x_distance, x_distance_predicted, y_distance, y_distance_predicted)
             #print(coords[1], y_distance_predicted)
             # Update X speed using a controler
             if x_speed_goal is False:
-                x_speed, x_speed_goal = self.decelerate_to_target(x_distance, x_speed, max_speed = max_speed_x, min_speed=initial_speed/2)
+                x_speed, x_speed_goal = self.decelerate_to_target(alpha, x_distance, x_speed, max_speed = max_speed_x, min_speed=initial_speed/2)
                 if x_speed_goal is True:
                     # Controller stopped, save data to a log file
                     self.save_log_csv(log_data=self.data_log, folder = "Plots/pid", name = "pid")
@@ -325,7 +335,7 @@ class robotControl:
         return velocity_vector
     
     
-    def decelerate_to_target(self, distance_to_target, initial_speed, max_speed, min_speed):
+    def decelerate_to_target(self, alpha, distance_to_target, initial_speed, max_speed, min_speed):
 
         if self.start_time == 0:
             self.start_time = time.time()
@@ -370,7 +380,8 @@ class robotControl:
             "x_speed": speed,
             "p_term": self.Kp * error,
             "i_term": self.Ki * self.integral,
-            "d_term": self.Kd * self.derivative
+            "d_term": self.Kd * self.derivative,
+            "alpha": alpha
         })
         
         
