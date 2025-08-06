@@ -268,7 +268,7 @@ class robotControl:
                 
             # Predicted pose when the part is not visible based on inital speed
             x_distance_predicted = (last_coords[0] + initial_speed*(time.time() - last_coords_time)) - (pose[0] - last_coords_robot[0])
-            y_distance_predicted = last_coords[1] + (pose[1] - last_coords_robot[1])
+            y_distance_predicted = last_coords[1] - (last_coords_robot[1] - pose[1])
             
             y_distance = coords[1]
             
@@ -282,7 +282,6 @@ class robotControl:
                 last_coords_robot[0] = pose[0]
                 last_coords_robot[1] = pose[1]
             else:
-                delta_alpha = 0.01
                 alpha_progress += delta_alpha
                 if alpha_progress >= 1:
                     alpha_progress = 1
@@ -314,7 +313,9 @@ class robotControl:
                 y_speed = -max_speed_y * direction_y
             else:
                 y_speed_goal = True
-                y_speed = 0
+                y_speed = y_speed * 0.5
+                if abs(y_speed) < 1e-4:
+                    y_speed = 0 
                         
                         
             y_speed = float(y_speed)
@@ -329,7 +330,7 @@ class robotControl:
 
             velocity_vector = [x_speed, y_speed, 0, 0, 0, 0]
             #print("Vel vector chasing: ",velocity_vector, y_distance)
-            URRobot.speedl(velocity_vector, 2, 0.5)
+            URRobot.speedl(velocity_vector, 1, 0.5)
             
             self.xy_log.append({
                 "time": time.time() - self.xy_start_time_log,
@@ -405,7 +406,7 @@ class robotControl:
         self.stablization_points += (abs(error) < 0.03) # self.Kd * self.derivative < 0.005
         #print("Error", error)
         
-        if self.stablization_points > 10:
+        if self.stablization_points > 7:
             self.integral = 0
             self.derivative = 0
             self.last_time = None
@@ -427,7 +428,7 @@ class robotControl:
         rz_speed = 0.001
         z_speed = 0.0
         
-        ramp_rate_z = 0.0015
+        ramp_rate_z = 0.003
         
         # Total z distance:
         pose = URReceiver.get_pose()  # current z position
@@ -457,8 +458,10 @@ class robotControl:
         rz_speed = 0
         rz_pose = 0
         
-        rz_acceleration_threshold = 0.3
+        rz_acceleration_threshold = 0.1
+        rz_deceleration_threshold = 0.9
         acceleration_angle = rz_acceleration_threshold * target_angle_rad
+        deceleration_angle = rz_deceleration_threshold * target_angle_rad
         min_speed_rz = 0.001
         
         smooth_points_z_start = 5
@@ -517,25 +520,30 @@ class robotControl:
                 if abs(angle) > min_angle:
                     # Rotation to target_angle
                     progress_acceleration = np.clip(abs(rz_pose/acceleration_angle), 0.0, 1.0)
+                    progress_deceleration = np.clip(abs((rz_pose-deceleration_angle)/(target_angle_rad-deceleration_angle)), 0.0, 1.0)
                     sign_rz = -np.sign(target_angle_rad)
                     
                     
                     if abs(rz_pose) < abs(acceleration_angle):
                         p = progress_acceleration
                         
+                        #accel = p**2
                         # Ease-Out Cubic
                         #accel = 1 - (1-p)**3
                         # Exponential Ramp-Up
-                        print("P:", p)
-                        accel = 1 - np.exp(-15 * p)
+                        #print("P:", p)
+                        accel = 1 - np.exp(-4 * p)
                         # Smoothstep
                         #accel = 3 * p**2 - 2 * p**3
                         
                         rz_speed = top_speed * accel
                         rz_speed = max(rz_speed, min_speed_rz)
                         rz_speed *= sign_rz
-                    elif abs(rz_pose) >= abs(target_angle_rad):
-                        rz_speed = rz_speed * 0.5
+                        top_achieved_rz_speed = rz_speed
+                    elif abs(rz_pose) >= abs(deceleration_angle):
+                        p = progress_deceleration
+                        decel = 1 - (1 - p)**2
+                        rz_speed = top_achieved_rz_speed * (1 - decel)
                         if abs(rz_speed) <= 1e-4:
                             rz_speed = 0 
                     else:
@@ -550,7 +558,7 @@ class robotControl:
                 
 
                 # If within 3mm from target height, stop
-                if z_distance <= 0.0005:
+                if z_distance <= 0:
                     velocity_vector[2] = 0
                     URRobot.speedl(velocity_vector, 3, 5)
                     if part_number == 0:

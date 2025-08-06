@@ -52,7 +52,7 @@ def robot_main_loop():
         else:
             print("Invalid part speed")
         
-        time.sleep(3)
+        time.sleep(5)
 
 root = tk.Tk()
 app = Gui(root, camera_instance=camera, robot_instance=robotControl, flags = flags)
