@@ -27,13 +27,13 @@ def robot_main_loop():
     while flags['start']:
         part_number = None
         while part_number is None and flags['start']:
-            part_number, angle = camera.identifyingPart()
+            start_time_system, part_number, angle = camera.identifyingPart()
 
 
-        avg_velocity, last_coords, last_coords_time, last_coords_robot = robotControl.rough_estimation(part_number)
-        if avg_velocity is not None:
-            avg_formatted = f"{avg_velocity:.7f}".replace('.', ',')
-            print("Avg velocity: ", avg_formatted)
+        avg_velocity, last_coords, last_coords_time, last_coords_robot = robotControl.rough_estimation(part_number, start_time_system)
+        # if avg_velocity is not None:
+        #     avg_formatted = f"{avg_velocity:.7f}".replace('.', ',')
+        #     print("Avg velocity: ", avg_formatted)
         
         #avg_velocity = None    
         if avg_velocity is not None:
@@ -52,7 +52,7 @@ def robot_main_loop():
         else:
             print("Invalid part speed")
         
-        time.sleep(5)
+        time.sleep(2)
 
 root = tk.Tk()
 app = Gui(root, camera_instance=camera, robot_instance=robotControl, flags = flags)

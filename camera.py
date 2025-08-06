@@ -388,7 +388,7 @@ class Camera:
             if part_number >= 3:
                 part_number = 0
             area, angle = self.capture_and_get_object_area_and_angle(part_number)
-        
+        start_time_system = time.time()
         #print(part_number)
         
         area_array = []
@@ -405,7 +405,7 @@ class Camera:
             
             if time.time() - loopTimeout > 15:
                 print("Part detection loop timeout")
-                return None, None
+                return start_time_system, None, None
         
         if area_array and angle_array:
             # Filter out too small values
@@ -447,11 +447,11 @@ class Camera:
             else:
                 part = None
                         
-            return part, angle
+            return start_time_system, part, angle
         
         else:
             logging.warning("Area or/and angle arrays are empty")
-            return None, None
+            return start_time_system, None, None
             
 
     def initSlider(self):

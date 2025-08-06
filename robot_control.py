@@ -130,6 +130,16 @@ class robotControl:
         self.xy_start_time_log = 0
         self.pred_vs_cam_log = []
         self.pred_vs_cam_time_log = 0
+        
+        self.time_log = []
+        
+        self.estimation_time_start = 0
+        self.estimation_time_stop = 0
+        self.catch_time_start = 0
+        self.catch_time_stop = 0
+        self.start_time_system = 0
+        self.start_pos_x = 0
+        self.stop_pos_x = 0
 
     def save_log_csv(self, log_data, folder, name):
         # Create the folder if it doesn't exist
@@ -160,7 +170,10 @@ class robotControl:
         URRobot.movel(self.DROP1_ABOVE, 0.1, 0.1, time_to)
         URRobot.movel(self.DROP1, 0.1, 0.1, time_to)
         
-    def rough_estimation(self, part_number):
+    def rough_estimation(self, part_number, start_time_system):
+        self.start_time_system = start_time_system
+        self.part_identification_time_stop = time.time()
+        self.estimation_time_start = time.time()
         parts_area = [34000, 22000, 48000]
         incorrect_readings = 0
         max_incorrect_readings = 5
@@ -199,6 +212,7 @@ class robotControl:
             
         
             if abs(avg_velocity) > 0.02:
+                self.estimation_time_stop = time.time()
                 return avg_velocity, last_coords, last_coords_time, last_coords_robot
             else:
                 print("Average velocity too slow")
@@ -230,6 +244,8 @@ class robotControl:
 
     def follow_part(self, part_number, initial_speed, last_coords, last_coords_time, last_coords_robot):
         self.start_time_log = time.time()
+        self.catch_time_start = time.time()
+        self.start_pos_x = URReceiver.get_pose()[0]
         # Max speed x so the robot can catch the part within 1 second
         #max_speed_x = initial_speed * 3
         max_speed_x = initial_speed + (last_coords[0] + initial_speed * (time.time() - last_coords_time)) /1.5
@@ -406,7 +422,7 @@ class robotControl:
         self.stablization_points += (abs(error) < 0.03) # self.Kd * self.derivative < 0.005
         #print("Error", error)
         
-        if self.stablization_points > 7:
+        if self.stablization_points > 10:
             self.integral = 0
             self.derivative = 0
             self.last_time = None
@@ -568,6 +584,22 @@ class robotControl:
                     elif part_number == 2:
                         gripper.open_close(55, 100, 1)
                     time.sleep(0.5)
+                    self.catch_time_stop = time.time()
+                    self.stop_pos_x = URReceiver.get_pose()[0]
+                    self.time_log.append({
+                        "part_number": part_number,
+                        "part_rotation": math.degrees(target_angle_rad),
+                        "distance_traveled": self.start_pos_x - self.stop_pos_x,
+                        "time_ident_stop": round(self.part_identification_time_stop - self.start_time_system,5),
+                        "time_speed_est_start": round(self.estimation_time_start - self.start_time_system,5),
+                        "time_speed_est_stop": round(self.estimation_time_stop - self.start_time_system,5),
+                        "time_catch_start": round(self.catch_time_start - self.start_time_system,5),
+                        "time_catch_stop": round(self.catch_time_stop - self.start_time_system,5)
+                    })
+                    
+                    
+                    
+                    self.save_log_csv(log_data=self.time_log, folder="Plots/time", name="time")
                     self.save_log_csv(log_data=self.descend_log, folder="Plots/descend", name="positions")
                     self.descend_log = []
                     return 0
@@ -639,16 +671,16 @@ class robotControl:
             velocity_vector[2] = z_speed
             URRobot.speedl(velocity_vector, 2, 0.5)
         
+        self.move_and_drop(above, target)
         
-        
-        if self.indicator_array[idx1] == 0:
-            self.indicator_array[idx1] = 1
-            self.move_and_drop(above, target)
-        elif self.indicator_array[idx2] == 0:
-            self.indicator_array[idx2] = 1
-            self.move_and_drop(above, target)
-        else:
-            logging.info(f"Storage for part {part_number + 1} full !!!")
+        # if self.indicator_array[idx1] == 0:
+        #     self.indicator_array[idx1] = 1
+        #     self.move_and_drop(above, target)
+        # elif self.indicator_array[idx2] == 0:
+        #     self.indicator_array[idx2] = 1
+        #     self.move_and_drop(above, target)
+        # else:
+        #     logging.info(f"Storage for part {part_number + 1} full !!!")
             
             
         required_parts = [self.indicator_array[3], self.indicator_array[4], self.indicator_array[5]]       
@@ -658,7 +690,7 @@ class robotControl:
             #self.assemble_product()
             self.indicator_array = [0,0,0,0,0,0]
         
-        self.move_home(5)
+        self.move_home(2)
         gripper.open_close(85, 100, 1)
         
         
@@ -666,11 +698,11 @@ class robotControl:
         return self.indicator_array
 
     def move_and_drop(self, above, target):
-        URRobot.movel(above, 0.5, 0.3, 3)
-        URRobot.movel(target, 0.2, 0.2, 3)
+        URRobot.movel(above, 0.5, 0.3, 2)
+        URRobot.movel(target, 0.2, 0.2, 2)
         gripper.open_close(65, 1, 1)
         time.sleep(0.5)
-        URRobot.movel(above, 0.2, 0.2, 3)
+        URRobot.movel(above, 0.2, 0.2, 2)
         gripper.open_close(85, 100, 1)
 
 
