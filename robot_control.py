@@ -111,11 +111,13 @@ class robotControl:
         self.derivative = 0
         self.last_time = None
         self.previous_error = None
-        self.Kp = 1.7
-        self.Ki = 0.25
+        self.previous_derivative = 0
+        self.derivative_tau = 12
+        self.Kp = 0.8
+        self.Ki = 0.15
         self.integral_min = -0.4
-        self.Kd = 0.0
-        self.Kff = 0.0
+        self.Kd = 0.4
+        self.Kff = 0.5
         self.stablization_points = 0
         self.start_time_log = 0
         self.start_time = 0
@@ -303,13 +305,13 @@ class robotControl:
                     alpha_progress = 1
                     
             alpha = round(alpha_progress,10)
-            print("X:",coords[0], x_distance_predicted)
-            print("Y:",coords[1], y_distance_predicted)
+            #print("X:",coords[0], x_distance_predicted)
+            #print("Y:",coords[1], y_distance_predicted)
 
             x_distance = alpha * x_distance_predicted + (1 - alpha) * coords[0]
             y_distance = alpha * y_distance_predicted + (1 - alpha) * coords[1]    
             
-            print("Final xy:",x_distance, y_distance)
+            #print("Final xy:",x_distance, y_distance)
             
             
             
@@ -393,8 +395,13 @@ class robotControl:
         if self.previous_error is None:
             self.previous_error = error
         else:
-            self.derivative = (error - self.previous_error) / dt
+            # Add low pass filter?
+            raw_derivative = (error - self.previous_error) / dt
+            alpha = self.derivative_tau / (self.derivative_tau + dt)
+            self.derivative = alpha * self.previous_derivative + (1 - alpha) * raw_derivative
             self.previous_error = error
+            self.previous_derivative = self.derivative
+            
         
         # PID controller speed output
         speed = self.Kp * error + self.Ki * self.integral + self.Kd * self.derivative + self.Kff * initial_speed
@@ -419,8 +426,10 @@ class robotControl:
         })
         
         
-        self.stablization_points += (abs(error) < 0.03) # self.Kd * self.derivative < 0.005
+        self.stablization_points += (abs(error) < 0.01) # self.Kd * self.derivative < 0.005
         #print("Error", error)
+        if (abs(error) >= 0.01):
+            self.stablization_points = 0
         
         if self.stablization_points > 10:
             self.integral = 0
@@ -432,7 +441,9 @@ class robotControl:
             self.start_time = 0
         else:
             at_target = False
+            
         
+        print(self.stablization_points)
         
         return speed, at_target
         
@@ -466,7 +477,7 @@ class robotControl:
         angle_clamped = np.clip(abs(angle), min_angle, max_angle)
         
         top_speed = min_speed_rz + (angle_clamped - min_angle) / (max_angle - min_angle) * (max_speed_rz - min_speed_rz)
-        print("Top speed", top_speed)
+        #print("Top speed", top_speed)
         
         target_angle_rad = math.radians(angle)
         
@@ -624,7 +635,7 @@ class robotControl:
                 
                 rz_speed_prev = rz_speed
                 
-                print("Vel vector descending: ",velocity_vector)
+                #print("Vel vector descending: ",velocity_vector)
                 URRobot.speedl(velocity_vector, 3, 0.5)
         
 

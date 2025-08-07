@@ -16,7 +16,7 @@ flags = {'start': True}
 
 def image_show():
     while True:
-        coords, area, frame, angle = camera.capture_and_get_coords_center(0)
+        coords, area, frame, angle = camera.capture_and_get_coords_center(2)
         #print(coords)
         cv.imshow("Frame", frame)
         if cv.waitKey(1) & 0xFF == ord('q'):
