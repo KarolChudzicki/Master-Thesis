@@ -112,11 +112,11 @@ class robotControl:
         self.last_time = None
         self.previous_error = None
         self.previous_derivative = 0
-        self.derivative_tau = 10
-        self.Kp = 2
-        self.Ki = 0.25
+        self.derivative_tau = 0.3
+        self.Kp = 1.25
+        self.Ki = 0.4
         self.integral_min = -0.4
-        self.Kd = 1
+        self.Kd = -0.2
         self.Kff = 0.0
         self.stablization_points = 0
         self.start_time_log = 0
@@ -185,6 +185,7 @@ class robotControl:
         timeout = time.time()
         while incorrect_readings < max_incorrect_readings:
             coords, area, _, _ = self.camera.capture_and_get_coords_center(part_number)
+            print(area, part_number, coords)
             if area > parts_area[part_number]:
                 self.coords_array_x.append(coords[0])
                 self.coords_array_y.append(coords[1])
@@ -326,8 +327,6 @@ class robotControl:
                     
             
             if abs(y_distance) > y_threshold_distance and y_speed_goal is False:
-                norm_y = np.clip(abs(y_distance)/y_slowdown_radius, 0, 1)
-                y_speed_factor = norm_y ** 4
                 y_speed = -max_speed_y * direction_y
             else:
                 y_speed_goal = True
@@ -348,7 +347,7 @@ class robotControl:
 
             velocity_vector = [x_speed, y_speed, 0, 0, 0, 0]
             #print("Vel vector chasing: ",velocity_vector, y_distance)
-            URRobot.speedl(velocity_vector, 1, 0.5)
+            URRobot.speedl(velocity_vector, 0.8, 0.5)
             
             self.xy_log.append({
                 "time": time.time() - self.xy_start_time_log,
@@ -367,6 +366,11 @@ class robotControl:
                 self.save_log_csv(log_data=self.xy_log, folder = "Plots/follow", name = "xy")
                 self.xy_log = []
                 break
+            
+            if pose[0] < -0.60:
+                logging.error("Robot went to far, going back...")
+                self.move_home(3)
+                return None
         
         return velocity_vector
     
@@ -418,7 +422,8 @@ class robotControl:
             "p_term": self.Kp * error,
             "i_term": self.Ki * self.integral,
             "d_term": self.Kd * self.derivative,
-            "alpha": alpha
+            "alpha": alpha,
+            "dt": dt
         })
         
         
