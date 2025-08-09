@@ -112,12 +112,12 @@ class robotControl:
         self.last_time = None
         self.previous_error = None
         self.previous_derivative = 0
-        self.derivative_tau = 12
-        self.Kp = 0.8
-        self.Ki = 0.15
+        self.derivative_tau = 10
+        self.Kp = 2
+        self.Ki = 0.25
         self.integral_min = -0.4
-        self.Kd = 0.4
-        self.Kff = 0.5
+        self.Kd = 1
+        self.Kff = 0.0
         self.stablization_points = 0
         self.start_time_log = 0
         self.start_time = 0
@@ -250,7 +250,7 @@ class robotControl:
         self.start_pos_x = URReceiver.get_pose()[0]
         # Max speed x so the robot can catch the part within 1 second
         #max_speed_x = initial_speed * 3
-        max_speed_x = initial_speed + (last_coords[0] + initial_speed * (time.time() - last_coords_time)) /1.5
+        max_speed_x = initial_speed + (last_coords[0] + initial_speed * (time.time() - last_coords_time))
         #print("Max speed: ", max_speed_x, last_coords[0] + initial_speed * (time.time() - last_coords_time))
         
         # Max speed y (1 second to cover the delta y) but not less than 15mm/s
@@ -397,22 +397,18 @@ class robotControl:
         else:
             # Add low pass filter?
             raw_derivative = (error - self.previous_error) / dt
-            alpha = self.derivative_tau / (self.derivative_tau + dt)
+            alpha = self.derivative_tau * dt / (self.derivative_tau * dt + dt)
             self.derivative = alpha * self.previous_derivative + (1 - alpha) * raw_derivative
             self.previous_error = error
             self.previous_derivative = self.derivative
             
         
         # PID controller speed output
-        speed = self.Kp * error + self.Ki * self.integral + self.Kd * self.derivative + self.Kff * initial_speed
+        speed = self.Kp * error + self.Ki * self.integral + self.Kd * self.derivative
 
-        # Clamp speed to max/min speed limits
-        #direction = np.sign(initial_speed)
         speed = max(speed, max_speed)
         speed = float(speed)
-        
-        #print("Controller:", error, self.integral, self.derivative, speed)
-        
+
         
         # Log data
         self.data_log.append({
@@ -426,8 +422,8 @@ class robotControl:
         })
         
         
-        self.stablization_points += (abs(error) < 0.01) # self.Kd * self.derivative < 0.005
-        #print("Error", error)
+        self.stablization_points += (abs(error) < 0.01)
+
         if (abs(error) >= 0.01):
             self.stablization_points = 0
         
@@ -441,9 +437,7 @@ class robotControl:
             self.start_time = 0
         else:
             at_target = False
-            
-        
-        print(self.stablization_points)
+
         
         return speed, at_target
         
