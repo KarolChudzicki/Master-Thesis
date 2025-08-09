@@ -397,7 +397,7 @@ class robotControl:
         else:
             # Add low pass filter?
             raw_derivative = (error - self.previous_error) / dt
-            alpha = self.derivative_tau * dt / (self.derivative_tau * dt + dt)
+            alpha = self.derivative_tau / (self.derivative_tau + dt)
             self.derivative = alpha * self.previous_derivative + (1 - alpha) * raw_derivative
             self.previous_error = error
             self.previous_derivative = self.derivative
