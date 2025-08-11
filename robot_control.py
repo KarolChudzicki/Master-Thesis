@@ -511,13 +511,10 @@ class robotControl:
             z_distance = max(z_pose - descend_height, 0)
 
             if z_distance > z_half:
-                if smooth_points_z_start > 0:
-                    smooth_points_z_start -= 1
-                    z_speed = -0.0001
-                else:
-                    z_speed -= ramp_rate_z
-                    z_speed = max(z_speed, max_speed_z)
-                    z_speed_achieved = z_speed
+                z_speed -= ramp_rate_z
+                z_speed = max(z_speed, max_speed_z)
+                z_speed_achieved = z_speed
+                    
             elif z_distance > 0.001:
                 # Normalize distance in slowdown zone [0..1]
                 normalized_dist = np.clip(z_distance / z_half, 0.0, 1.0)
