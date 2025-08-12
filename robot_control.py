@@ -330,7 +330,7 @@ class robotControl:
                 y_speed = -max_speed_y * direction_y
             else:
                 y_speed_goal = True
-                y_speed = y_speed * 0.5
+                y_speed = y_speed / 4
                 if abs(y_speed) < 1e-4:
                     y_speed = 0 
                         
@@ -461,7 +461,9 @@ class robotControl:
         z_pose = pose[2]
         
         # Calculate vertical distance above descend height, but never negative
-        z_half = (z_pose - descend_height) / 2
+        z_half = ((z_pose - descend_height) / 2)
+        
+        print(z_half, z_pose - descend_height)
         
         # To prevent jumps
         if angle > 0:
@@ -490,7 +492,6 @@ class robotControl:
         deceleration_angle = rz_deceleration_threshold * target_angle_rad
         min_speed_rz = 0.001
         
-        smooth_points_z_start = 5
         
         
         self.descend_start_time_log = time.time()
@@ -514,12 +515,13 @@ class robotControl:
                 z_speed -= ramp_rate_z
                 z_speed = max(z_speed, max_speed_z)
                 z_speed_achieved = z_speed
-                    
-            elif z_distance > 0.001:
+            elif z_distance > 0:
                 # Normalize distance in slowdown zone [0..1]
-                normalized_dist = np.clip(z_distance / z_half, 0.0, 1.0)
-                slow_factor = normalized_dist ** 0.5
-                z_speed = z_speed_achieved * slow_factor
+                p_z = np.clip(z_distance / z_half, 0.0, 1.0)
+                #slow_factor = normalized_dist ** 0.5
+                z_speed = z_speed_achieved * p_z ** 0.6
+                if z_speed > -1e-4:
+                    z_speed = 0
                     
                 z_speed = max(z_speed, max_speed_z)
                     
