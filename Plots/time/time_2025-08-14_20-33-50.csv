@@ -1,0 +1,3 @@
+part_number,part_rotation,distance_traveled,time_ident_stop,time_speed_est_start,time_speed_est_stop,time_catch_start,time_catch_stop
+2,3.6422368685404507,0.62504,0.28914,0.28914,2.90006,2.90006,11.24066
+1,41.396461486816406,0.64659,0.28839,0.28839,3.29013,3.29013,12.13092

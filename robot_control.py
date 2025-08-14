@@ -449,7 +449,7 @@ class robotControl:
     def descend_and_grab(self, velocity_vector, angle, part_number):
         x_speed = velocity_vector[0]
         max_speed_z = -0.2
-        descend_height = -0.105
+        descend_height = -0.104
         
         rz_speed = 0.001
         z_speed = 0.0
