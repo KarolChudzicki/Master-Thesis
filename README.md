@@ -14,18 +14,28 @@ This thesis describes a robotic system consisting of:
 
 The project was developed primarily in Python, with OpenCV used for computer vision.
 
-## Repository structure
+## Repository Structure
 
+```text
 Master-Thesis/
-├── main.py                     # Main application
-├── robot_control.py            # Robot motion and control
-├── camera.py                   # Image acquisition and processing
-├── conveyor_belt.py            # Conveyor communication and control
-├── gripper.py                  # Robotiq gripper control
-├── gui.py                      # User interface
+├── 3D files/                     # 3D files used for the project
+├── Calibration/                  # Camera and hand-eye calibration tools
+├── Plots/                        # Plots with results
+├── calibration_images/           # Camera calibration images
+├── calibration_images_hand_eye/  # Hand-eye calibration images
 │
-├── Calibration/                # Camera calibration
-├── calibration_images/         # Camera calibration dataset
-├── calibration_images_hand_eye/# Hand-eye calibration dataset
-├── Plots/                      # Experimental results and plots
-└── Thesis/                     # Master's thesis 3D designs/photos/documenations
+├── main.py                       # Main application entry point
+├── camera.py                     # Image acquisition and processing
+├── robot_control.py              # Robot movement control
+├── conveyor_belt.py              # Conveyor belt communication and control
+├── gripper.py                    # Robotiq gripper control
+├── gui.py                        # Graphical user interface
+├── ur.py                         # UR commands used for RTDE
+├── urData.py                     # UR robot data handling
+├── misc.py                       # Utility functions
+│
+├── calib_param.txt               # Camera calibration parameters
+├── calib_param_hand_eye.txt      # Hand-eye calibration parameters
+├── slider_params_*.json          # Image-processing parameters
+└── README.md                     # Project documentation
+```
