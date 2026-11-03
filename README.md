@@ -18,24 +18,33 @@ The project was developed primarily in Python, with OpenCV used for computer vis
 
 ```text
 Master-Thesis/
-├── 3D files/                     # 3D files used for the project
 ├── Calibration/                  # Camera and hand-eye calibration tools
-├── Plots/                        # Plots with results
-├── calibration_images/           # Camera calibration images
-├── calibration_images_hand_eye/  # Hand-eye calibration images
+├── Plots/                        # Experimental results and evaluation plots
+├── Tests/                        # Development and system tests
+├── Thesis/                       # Master's thesis report and LaTeX source
+├── calibration_images/           # Images used for intrinsic camera calibration
+├── calibration_images_hand_eye/  # Images used for hand-eye calibration
 │
-├── main.py                       # Main application entry point
-├── camera.py                     # Image acquisition and processing
-├── robot_control.py              # Robot movement control
-├── conveyor_belt.py              # Conveyor belt communication and control
-├── gripper.py                    # Robotiq gripper control
-├── gui.py                        # Graphical user interface
-├── ur.py                         # UR commands used for RTDE
-├── urData.py                     # UR robot data handling
-├── misc.py                       # Utility functions
+├── main.py                       # Main system loop and component integration
+├── camera.py                     # Object detection, localization and camera transformations
+├── robot_control.py              # Object tracking, interception and pick-and-place control
+├── conveyor_belt.py              # Conveyor inverter control via Modbus RTU
+├── gripper.py                    # Robotiq gripper control via Modbus RTU
+├── gui.py                        # System control and calibration GUI
+├── ur.py                         # UR robot motion commands via TCP/IP
+├── urData.py                     # Real-time UR robot pose acquisition
+├── misc.py                       # Modbus CRC calculation
 │
-├── calib_param.txt               # Camera calibration parameters
+├── calib_param.txt               # Intrinsic camera calibration parameters
 ├── calib_param_hand_eye.txt      # Hand-eye calibration parameters
-├── slider_params_*.json          # Image-processing parameters
+├── slider_params_*.json          # Object-specific vision parameters
 └── README.md                     # Project documentation
 ```
+
+<p align="center">
+  <img src="Images/sys_arch.svg" width="700">
+</p>
+
+<p align="center">
+  <img src="Images/sys_overview.svg" width="700">
+</p>
