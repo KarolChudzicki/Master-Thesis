@@ -1,11 +1,11 @@
 # Vision-Guided Robotic System for Real-Time Object Tracking and Handling
 
-This project was developed as part of my master thesis at Technical University of Denmark. The objective was to design a robotic arm to pick up different objects from a conveyor belt using only input from a camera mounted to the end effector of the robotic arm.
+This project was developed as part of my Master's thesis at the Technical University of Denmark. The objective was to develop a robotic system for detecting, tracking, and picking different objects from a moving conveyor belt using visual input from a camera mounted on the robot's end effector.
 
 ## Overview
 
-This thesis describes a robotic system consisting of:
-- **UR10 Cobot** - for pick-and-place operations,
+The system consists of:
+- **UR5 Cobot** - for pick-and-place operations,
 - **Webcam (1920 x 1080)** - used for visual input,
 - **Conveyor belt** - supplied various parts for the robotic arm to handle,
 - **PC** - runs image processing, controls the robot and handles communication,
@@ -13,6 +13,38 @@ This thesis describes a robotic system consisting of:
 
 
 The project was developed primarily in Python, with OpenCV used for computer vision.
+
+
+## System Architecture
+
+<p align="center">
+  <img src="Images/sys_arch.svg" width="700">
+</p>
+
+<p align="center">
+  <i>System architecture and communication interfaces.</i>
+</p>
+
+## Project Setup
+
+<p align="center">
+  <img src="Images/sys_overview.svg" width="700">
+</p>
+
+<p align="center">
+  <i>Physical setup of the developed robotic system.</i>
+</p>
+
+## Process flow
+
+```mermaid
+flowchart LR
+    A[Detect & identify part] --> B[Estimate velocity]
+    B --> C[Track moving part]
+    C --> D[Intercept & grasp]
+    D --> E[Move to storage]
+    E --> A
+```
 
 ## Repository Structure
 
@@ -41,10 +73,8 @@ Master-Thesis/
 └── README.md                     # Project documentation
 ```
 
-<p align="center">
-  <img src="Images/sys_arch.svg" width="700">
-</p>
+## Thesis
 
-<p align="center">
-  <img src="Images/sys_overview.svg" width="700">
-</p>
+For a detailed description of the system design, implementation, calibration and testing, see the full Master's thesis:
+
+📄 [View Master's Thesis](./Thesis/Master_Thesis.pdf)
