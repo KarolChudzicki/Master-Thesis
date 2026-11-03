@@ -18,7 +18,7 @@ The project was developed primarily in Python, with OpenCV used for computer vis
 ## System Architecture
 
 <p align="center">
-  <img src="Images/sys_arch.svg" width="700">
+  <img src="Images/sys_overview.svg" width="400">
 </p>
 
 <p align="center">
@@ -28,11 +28,11 @@ The project was developed primarily in Python, with OpenCV used for computer vis
 ## Project Setup
 
 <p align="center">
-  <img src="Images/sys_overview.svg" width="700">
+  <img src="Images/sys_arch.svg" width="750">
 </p>
 
 <p align="center">
-  <i>Physical setup of the developed robotic system.</i>
+  <i>Physical setup.</i>
 </p>
 
 ## Process flow
