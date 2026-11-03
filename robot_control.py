@@ -13,9 +13,10 @@ import csv
 import os
 from datetime import datetime
 
+
+
 gripper = gripper.Gripper(port='COM5')
 gripper.activate()
-
 
 
 URRobot = ur.URRobot()
